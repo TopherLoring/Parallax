@@ -7,7 +7,7 @@ import { Client } from "colyseus.js";
 import { ParallaxRoom } from "./rooms/ParallaxRoom";
 import { ROOM_TTL_MS, roomCodeRegistry } from "./roomCodes";
 
-type TestRoom = Awaited<ReturnType<Client["consumeSeatReservation"]>>;
+type TestRoom = Awaited<ReturnType<Client["consumeSeatReservation"]>> & { state: any };
 
 function waitForMessage<T>(
   room: TestRoom,
@@ -112,7 +112,8 @@ test("two independent clients receive private roles and duplicate attempts charg
     const messageTypes = ["game:attempt-result", "game:ack"];
     const waitForAttemptResponse = (room: TestRoom) =>
       Promise.race(messageTypes.map((type) =>
-        waitForMessage<any>(room, type, (payload) => payload.actionId === "same-action-id"),
+        waitForMessage<any>(room, type, (payload) => payload.actionId === "same-action-id")
+          .then((payload) => ({ type, payload })),
       ));
     const systemsResponse = waitForAttemptResponse(systemsRoom);
     const signalsResponse = waitForAttemptResponse(signalsRoom);
