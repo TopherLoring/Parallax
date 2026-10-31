@@ -187,6 +187,20 @@ describe("authoritative scenario session engine", () => {
     expect(signalsView.objects.some((object) => object.id === "diagnostic-terminal")).toBe(false);
   });
 
+  it("shares shared object discoveries while keeping role-specific evidence private", () => {
+    let state = readySession();
+    state = inspect(state, "systems-1", "relay-console", 2_000);
+    const systemsView = getPlayerScenarioView(state, scenario, "systems-1")!;
+    const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+    expect(systemsView.discoveries.some((item) => item.id === "object:relay-console")).toBe(true);
+    expect(signalsView.discoveries.some((item) => item.id === "object:relay-console")).toBe(true);
+
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_100);
+    const updatedSignalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+    expect(updatedSignalsView.discoveries.some((item) => item.clueId === "power-phase")).toBe(false);
+    expect(updatedSignalsView.discoveries.some((item) => item.id === "object:diagnostic-terminal")).toBe(false);
+  });
+
   it("rejects guessed clue IDs from a player without the required perspective", () => {
     const state = readySession();
     const forged = transitionGame(state, scenario, {
