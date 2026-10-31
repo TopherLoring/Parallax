@@ -15,7 +15,7 @@ test("room code registry reserves, binds, and releases codes", () => {
   assert.equal(registry.bind("ABC234", "room-1"), true);
   assert.deepEqual(registry.get("ABC234"), { roomId: "room-1", expiresAt: 5_000 });
   registry.release("ABC234");
-  assert.equal(registry.get("ABC234", 2_000), null);
+  assert.equal(registry.get("ABC234"), null);
 });
 
 test("expired room codes remain reserved until their room is disposed", () => {
@@ -38,7 +38,7 @@ test("room code expiry can be extended for a host rematch", () => {
 
 test("generated codes use the unambiguous alphabet and avoid active codes", () => {
   const registry = new RoomCodeRegistry();
-  const first = generateRoomCode(registry, new Set(["AAAAAA"]), 10_000);
+  const first = generateRoomCode(registry, new Set(["AAAAAA"]), Date.now() + 10_000);
   assert.equal(first.length, ROOM_CODE_LENGTH);
   assert.ok([...first].every((character) => ROOM_CODE_ALPHABET.includes(character)));
   assert.notEqual(first, "AAAAAA");
