@@ -232,6 +232,7 @@ export function transitionGame(
         state.phase !== "lobby" ||
         connected.length < 2 ||
         connected.some((player) => !player.ready) ||
+        scenario.requiredRoleIds.some((roleId) => !connected.some((player) => player.roleId === roleId)) ||
         !Number.isFinite(action.at)
       ) return state;
       return {
@@ -335,7 +336,7 @@ export function getPlayerScenarioView(
         ? null
         : Math.max(0, mechanism.maxAttempts - (state.mechanismAttempts[mechanism.id] ?? 0)),
     }));
-  const actions = scenario.actions.flatMap((action) => {
+  const actions = state.phase === "active" ? scenario.actions.flatMap((action) => {
     if (action.kind === "inspect-object") {
       const object = scenario.objects.find((item) => item.id === action.targetObjectId);
       if (!object || !canInspectObject(state, scenario, player, object.id)) return [];
@@ -346,7 +347,7 @@ export function getPlayerScenarioView(
     if (!mechanism || !canAttemptMechanism(state, scenario, player, mechanism.id)) return [];
     if (!prerequisitesMet(state, action.prerequisites, player.id)) return [];
     return [{ id: action.id, kind: action.kind, label: action.label, targetId: action.targetMechanismId }];
-  });
+  }) : [];
 
   return {
     scenario: {
