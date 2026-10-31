@@ -58,6 +58,11 @@ const clueSchema = z.object({
   prerequisites: z.array(prerequisiteSchema).default([]),
 }).strict();
 
+const actionSchema = z.discriminatedUnion("kind", [
+  z.object({ id, kind: z.literal("inspect-object"), label: nonEmptyText, targetObjectId: id, prerequisites: z.array(prerequisiteSchema).default([]) }).strict(),
+  z.object({ id, kind: z.literal("attempt-mechanism"), label: nonEmptyText, targetMechanismId: id, prerequisites: z.array(prerequisiteSchema).default([]) }).strict(),
+]);
+
 const mechanismSchema = z.object({
   id,
   name: nonEmptyText,
@@ -98,7 +103,7 @@ export const scenarioSchema = z.object({
   const roles = new Set(scenario.perspectives.map((item) => item.id));
   const objects = new Set(scenario.objects.map((item) => item.id));
   const clues = new Set(scenario.clues.map((item) => item.id));
-  const mechanisms = new Set(scenario.mechanisms.map((item) => item.id));
+  const mechanisms = new Set(scenario.mechanisms.map((item) => item.id));\n  checkUnique(scenario.actions, "actions");
   const checkVisibility = (visibility: z.infer<typeof discoveryVisibilitySchema>, path: (string | number)[]) => {
     if (visibility.kind === "role") visibility.roleIds.forEach((roleId) => {
       if (!roles.has(roleId)) ctx.addIssue({ code: "custom", path, message: `Unknown role id: ${roleId}` });
@@ -135,7 +140,7 @@ export const scenarioSchema = z.object({
       if (!mechanisms.has(mechanismId)) ctx.addIssue({ code: "custom", path: ["perspectives", index, "usableMechanismIds"], message: `Unknown usable mechanism: ${mechanismId}` });
     });
   });
-  scenario.winCondition.forEach((requirement, index) => checkPrerequisite(requirement, ["winCondition", index]));
+  scenario.actions.forEach((action, index) => {\n    if (action.kind === "inspect-object" && !objects.has(action.targetObjectId)) ctx.addIssue({ code: "custom", path: ["actions", index, "targetObjectId"], message: `Unknown action object: ${action.targetObjectId}` });\n    if (action.kind === "attempt-mechanism" && !mechanisms.has(action.targetMechanismId)) ctx.addIssue({ code: "custom", path: ["actions", index, "targetMechanismId"], message: `Unknown action mechanism: ${action.targetMechanismId}` });\n    action.prerequisites.forEach((requirement, requirementIndex) => checkPrerequisite(requirement, ["actions", index, "prerequisites", requirementIndex]));\n  });\n  scenario.winCondition.forEach((requirement, index) => checkPrerequisite(requirement, ["winCondition", index]));
 });
 
 export type ScenarioDefinition = z.infer<typeof scenarioSchema>;
