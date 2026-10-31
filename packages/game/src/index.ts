@@ -1,4 +1,4 @@
-import type { Discovery, GamePhase, Player, RoomState } from "./types";
+import type { Discovery, Player, RoomState } from "./types";
 
 export type {
   ClueDefinition,
