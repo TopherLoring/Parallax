@@ -35,3 +35,40 @@ h1 em{font-style:normal;color:#78c8e5}
 footer{height:62px;margin-top:auto;border-top:1px solid #ffffff13;border-bottom:0;font-size:8px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:600px){.shell{padding:0 20px}.topbar{height:62px}.topbar-label{display:none}.hero{margin:72px auto 54px}h1{font-size:clamp(45px,12vw,68px)}.entry-panel{padding:17px;margin-top:36px}.panel-heading{font-size:8px}.principles{gap:10px}.principles div{grid-template-columns:20px 1fr;gap:5px}.principles span{font-size:8px}.principles small{font-size:9px}footer{font-size:7px;gap:12px}footer span:last-child{text-align:right}}
+
+.field-label{display:block;font:9px 'DM Mono',monospace;letter-spacing:.14em;color:#8ba3bc;margin:0 0 8px}
+.name-input{width:100%;height:46px;margin-bottom:12px;border:1px solid #ffffff24;background:#080f1b;color:#edf4ff;padding:0 14px;font:10px 'DM Mono',monospace;letter-spacing:.12em;outline:none}
+.name-input:focus{border-color:#78c8e5}
+.feedback{font:10px 'DM Mono',monospace;letter-spacing:.04em;line-height:1.6;margin:14px 0 0}
+.feedback.error{color:#ff9b9b}.feedback.notice{color:#8bd5e8}
+.room-code-display{display:flex;align-items:center;justify-content:space-between;padding:15px;background:#08121f;border:1px solid #78c8e533;margin-bottom:22px}
+.room-code-display small,.active-room-summary small{display:block;font:8px 'DM Mono',monospace;letter-spacing:.13em;color:#7890a9;margin-bottom:6px}
+.room-code-display strong{font:700 30px 'DM Mono',monospace;letter-spacing:.2em;color:#a4e3f2}
+.room-code-display button,.object-row button,.mechanism-row button{border:1px solid #78c8e566;background:#152a3d;color:#b9e9f5;padding:9px 12px;font:9px 'DM Mono',monospace;letter-spacing:.1em}
+.players-heading,.evidence-heading{display:flex;justify-content:space-between;font:9px 'DM Mono',monospace;letter-spacing:.12em;color:#8ba3bc;margin:18px 0 10px}
+.player-list{border-top:1px solid #ffffff18}
+.player-row{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid #ffffff12}
+.player-mark{width:30px;height:30px;display:grid;place-items:center;background:#1b354a;color:#9de0f0;font:12px 'DM Mono',monospace}
+.player-identity{display:grid;gap:3px;flex:1;min-width:0}
+.player-identity strong{font-size:11px;color:#e4edf6;font-weight:600}
+.player-identity small{font:8px 'DM Mono',monospace;letter-spacing:.08em;color:#7990a8}
+.player-state{font:8px 'DM Mono',monospace;letter-spacing:.08em;color:#71849a}
+.player-state.is-ready{color:#7be0be}
+.lobby-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.secondary-button{height:54px;border:1px solid #78c8e566;background:#102337;color:#b9e9f5;font:10px 'DM Mono',monospace;letter-spacing:.1em}
+.lobby-controls .primary-button{height:54px}
+.active-room-summary{display:flex;gap:34px;margin:20px 0}
+.active-room-summary strong{font:700 22px 'DM Mono',monospace;color:#a4e3f2}
+.private-panel{margin-top:24px;padding-top:18px;border-top:1px solid #ffffff1e}
+.role-description{font-size:11px;line-height:1.7;color:#a5b6c8;margin:0 0 16px}
+.evidence-heading{margin-top:20px}
+.evidence-card{padding:12px 13px;background:#0a1522;border-left:2px solid #78c8e5;margin:8px 0}
+.evidence-card strong,.object-row strong,.mechanism-row strong{display:block;font-size:11px;color:#e3edf7}
+.evidence-card p{font-size:10px;line-height:1.65;color:#9fb0c2;margin:7px 0 0}
+.object-row,.mechanism-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #ffffff12}
+.object-row>div,.mechanism-row>div{flex:1;min-width:0}
+.object-row small,.mechanism-row small{display:block;font-size:9px;line-height:1.5;color:#8296ac;margin-top:4px}
+.mechanism-row{display:grid;grid-template-columns:1fr auto auto}
+.mechanism-row input{width:140px;min-width:0;height:36px;background:#080f1b;border:1px solid #ffffff24;color:#edf4ff;padding:0 9px;font:9px 'DM Mono',monospace;letter-spacing:.06em}
+.leave-button{margin-top:18px;border:0;background:transparent;color:#8398ae;font:9px 'DM Mono',monospace;letter-spacing:.12em;padding:10px 0}
+@media(max-width:600px){.lobby-controls{grid-template-columns:1fr}.mechanism-row{grid-template-columns:1fr 1fr}.mechanism-row>div{grid-column:1/-1}.mechanism-row input{width:100%}.room-code-display strong{font-size:24px}.player-state{font-size:7px}}
