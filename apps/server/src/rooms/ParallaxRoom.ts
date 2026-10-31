@@ -10,7 +10,7 @@ import {
 } from "@parallax/game";
 import { activeScenario } from "../scenario";
 import { ParallaxPublicState, PublicPlayerState } from "../publicState";
-import { roomCodeRegistry } from "../roomCodes";
+import { roomCodeRegistry, ROOM_TTL_MS } from "../roomCodes";
 import {
   attemptMessageSchema,
   emptyMessageSchema,
