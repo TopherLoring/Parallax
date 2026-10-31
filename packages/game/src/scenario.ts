@@ -99,15 +99,9 @@ export const scenarioSchema = z.object({
   const objects = new Set(scenario.objects.map((item) => item.id));
   const clues = new Set(scenario.clues.map((item) => item.id));
   const mechanisms = new Set(scenario.mechanisms.map((item) => item.id));
-  const players = new Set<string>();
-
   const checkVisibility = (visibility: z.infer<typeof discoveryVisibilitySchema>, path: (string | number)[]) => {
     if (visibility.kind === "role") visibility.roleIds.forEach((roleId) => {
       if (!roles.has(roleId)) ctx.addIssue({ code: "custom", path, message: `Unknown role id: ${roleId}` });
-    });
-    if (visibility.kind === "player") visibility.playerIds.forEach((playerId) => {
-      if (players.has(playerId)) return;
-      // Player-specific IDs are allowed to be declared at runtime; the scenario cannot pre-bind room players.
     });
   };
 
