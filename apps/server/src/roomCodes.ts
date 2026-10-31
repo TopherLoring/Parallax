@@ -29,6 +29,13 @@ export class RoomCodeRegistry {
     return this.records.get(code) ?? null;
   }
 
+  extend(code: string, expiresAt: number): boolean {
+    const record = this.records.get(code);
+    if (!record || expiresAt <= Date.now()) return false;
+    this.records.set(code, { ...record, expiresAt });
+    return true;
+  }
+
   release(code: string): void {
     this.records.delete(code);
   }
