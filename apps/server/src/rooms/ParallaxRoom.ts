@@ -97,6 +97,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
         type: "player.reconnect",
         playerId: client.sessionId,
       });
+      if (!this.hostPlayerId) this.hostPlayerId = client.sessionId;
       this.syncState();
     } catch {
       // The player remains disconnected after the 20-second reservation expires.
