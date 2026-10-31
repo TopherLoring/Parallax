@@ -1,5 +1,16 @@
 import type { Discovery, Player, RoomState } from "./types";
 
+export {
+  canAttemptMechanism,
+  canDiscoverClue,
+  canInspectObject,
+  createGameSession,
+  evaluatePrerequisite,
+  getPlayerScenarioView,
+  transitionGame,
+} from "./engine";
+export type { GameSessionAction, GameSessionState, PlayerScenarioView, SessionPlayer } from "./engine";
+
 export { discoveryVisibilitySchema, prerequisiteSchema, scenarioSchema } from "./scenario";
 export type { PrerequisiteInput, ScenarioDefinition } from "./scenario";
 
