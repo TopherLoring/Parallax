@@ -22,6 +22,7 @@ function createFakeDependencies(): { dependencies: RoomApiDependencies; rooms: F
       rooms.push(room);
       return room;
     },
+    async remoteRoomCall() { return undefined; },
     async joinById(roomId: string, options: { displayName: string }) {
       if (!rooms.some((room) => room.roomId === roomId)) throw new Error("room_not_found");
       reservationCount += 1;
