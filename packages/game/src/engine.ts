@@ -117,9 +117,8 @@ function prerequisitesMet(
 }
 
 function isObjectUnlocked(scenario: ScenarioDefinition, state: GameSessionState, objectId: string): boolean {
-  return !scenario.mechanisms.some(
-    (mechanism) => mechanism.unlockObjectIds.includes(objectId) && !state.solvedMechanismIds.includes(mechanism.id),
-  );
+  const unlockingMechanisms = scenario.mechanisms.filter((mechanism) => mechanism.unlockObjectIds.includes(objectId));
+  return unlockingMechanisms.length === 0 || unlockingMechanisms.some((mechanism) => state.solvedMechanismIds.includes(mechanism.id));
 }
 
 export function canInspectObject(
@@ -146,6 +145,7 @@ export function canDiscoverClue(
   player: Player,
   clueId: string,
 ): boolean {
+  if (state.phase !== "active") return false;
   const perspective = findPerspective(scenario, player);
   const clue = scenario.clues.find((item) => item.id === clueId);
   if (!perspective || !clue || !perspective.visibleClueIds.includes(clueId)) return false;
@@ -161,6 +161,7 @@ export function canAttemptMechanism(
   player: Player,
   mechanismId: string,
 ): boolean {
+  if (state.phase !== "active") return false;
   const perspective = findPerspective(scenario, player);
   const mechanism = scenario.mechanisms.find((item) => item.id === mechanismId);
   if (!perspective || !mechanism || !perspective.usableMechanismIds.includes(mechanismId)) return false;
@@ -300,12 +301,12 @@ export function transitionGame(
 
       const energy = Math.max(0, state.energy - mechanism.failedAttemptEnergyCost);
       const next = { ...state, mechanismAttempts, processedActionIds, energy };
-      return energy === 0
+      return energy === 0 && scenario.failureConditions.includes("energy-depleted")
         ? terminal(next, "lost", { kind: "energy-depleted", completedAt: action.at })
         : next;
     }
     case "game.tick":
-      if (state.phase !== "active" || state.deadline === null || !Number.isFinite(action.at) || action.at < state.deadline) return state;
+      if (state.phase !== "active" || !scenario.failureConditions.includes("timeout") || state.deadline === null || !Number.isFinite(action.at) || action.at < state.deadline) return state;
       return terminal(state, "lost", { kind: "timeout", completedAt: action.at });
   }
 }
