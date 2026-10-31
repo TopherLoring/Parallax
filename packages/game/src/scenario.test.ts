@@ -22,7 +22,7 @@ const validScenario = {
   mechanisms: [
     { id: "relay", name: "Restore Relay", description: "Enter the coordinated phase and offset.", acceptedAnswers: ["3:7"], failedAttemptEnergyCost: 5, unlockObjectIds: [] },
   ],
-  winCondition: [{ kind: "mechanism-solved", mechanismId: "relay" }],
+  actions: [\n    { id: "inspect-console", kind: "inspect-object", label: "Inspect console", targetObjectId: "console" },\n    { id: "restore-relay", kind: "attempt-mechanism", label: "Restore relay", targetMechanismId: "relay" },\n  ],\n  winCondition: [{ kind: "mechanism-solved", mechanismId: "relay" }],
 };
 
 describe("versioned scenario schema", () => {
@@ -56,7 +56,7 @@ describe("versioned scenario schema", () => {
     expect(scenarioSchema.safeParse(invalid).success).toBe(false);
   });
 
-  it("rejects undeclared keys to keep scenario data versioned and explicit", () => {
+  it("rejects actions that target undefined objects or mechanisms", () => {\n    const invalid = { ...validScenario, actions: [{ id: "bad-action", kind: "inspect-object", label: "Inspect", targetObjectId: "missing" }] };\n    expect(scenarioSchema.safeParse(invalid).success).toBe(false);\n  });\n\n  it("rejects undeclared keys to keep scenario data versioned and explicit", () => {
     expect(scenarioSchema.safeParse({ ...validScenario, surprise: true }).success).toBe(false);
   });
 });
