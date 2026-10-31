@@ -80,7 +80,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.syncState();
   }
 
-  onLeave(client: Client) {
+  async onLeave(client: Client, consented: boolean) {
     this.domainState = transitionGame(this.domainState, activeScenario, {
       type: "player.leave",
       playerId: client.sessionId,
@@ -89,6 +89,19 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       this.hostPlayerId = this.domainState.players.find((player) => player.connected)?.id ?? "";
     }
     this.syncState();
+
+    if (consented) return;
+    try {
+      await this.allowReconnection(client, 20);
+      this.domainState = transitionGame(this.domainState, activeScenario, {
+        type: "player.reconnect",
+        playerId: client.sessionId,
+      });
+      this.syncState();
+    } catch {
+      // The player remains disconnected after the 20-second reservation expires.
+      this.syncState();
+    }
   }
 
   onDispose() {
