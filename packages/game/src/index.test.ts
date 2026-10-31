@@ -15,6 +15,7 @@ describe("game domain foundation", () => {
       discoveries: [],
       energy: STARTING_ENERGY,
       deadline: null,
+      outcome: null,
     });
   });
 
@@ -49,9 +50,10 @@ describe("game domain foundation", () => {
     state = transition(state, { type: "player.join", player: { id: "a", displayName: "A", connected: true } });
     state = transition(state, { type: "player.join", player: { id: "b", displayName: "B", connected: true } });
     state = transition(state, { type: "game.start", deadline: 1000 });
-    state = transition(state, { type: "energy.spend", amount: STARTING_ENERGY });
+    state = transition(state, { type: "energy.spend", amount: STARTING_ENERGY, at: 2000 });
     expect(state.phase).toBe("lost");
     expect(state.energy).toBe(0);
+    expect(state.outcome).toEqual({ kind: "energy-depleted", completedAt: 2000 });
   });
 
   it("does not mutate state when duplicate discoveries are recorded", () => {
@@ -63,5 +65,25 @@ describe("game domain foundation", () => {
     state = transition(state, { type: "discovery.record", discovery });
     const afterDuplicate = transition(state, { type: "discovery.record", discovery });
     expect(afterDuplicate.discoveries).toHaveLength(1);
+  });
+});
+
+describe("terminal outcomes", () => {
+  it("records deterministic victory timestamps supplied by the caller", () => {
+    let state = createInitialRoomState();
+    state = transition(state, { type: "player.join", player: { id: "a", displayName: "A", connected: true } });
+    state = transition(state, { type: "player.join", player: { id: "b", displayName: "B", connected: true } });
+    state = transition(state, { type: "game.start", deadline: 5000 });
+    state = transition(state, { type: "game.win", at: 4200 });
+    expect(state.phase).toBe("won");
+    expect(state.outcome).toEqual({ kind: "victory", completedAt: 4200 });
+  });
+
+  it("rejects terminal actions with invalid timestamps", () => {
+    let state = createInitialRoomState();
+    state = transition(state, { type: "player.join", player: { id: "a", displayName: "A", connected: true } });
+    state = transition(state, { type: "player.join", player: { id: "b", displayName: "B", connected: true } });
+    state = transition(state, { type: "game.start", deadline: 5000 });
+    expect(transition(state, { type: "game.win", at: Number.NaN })).toBe(state);
   });
 });
