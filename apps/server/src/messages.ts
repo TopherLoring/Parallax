@@ -24,7 +24,8 @@ export const readyMessageSchema = z.object({
   ready: z.boolean(),
 }).strict();
 
-export const startMessageSchema = z.object({}).strict();
+export const emptyMessageSchema = z.object({}).strict();
+export const startMessageSchema = emptyMessageSchema;
 
 export const inspectMessageSchema = z.object({
   objectId: z.string().trim().min(1).max(80),
