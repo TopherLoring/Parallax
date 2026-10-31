@@ -46,6 +46,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     }, Math.max(0, this.expiresAt - Date.now()));
 
     this.onMessage("ping", (client) => client.send("pong", { at: Date.now() }));
+    this.onMessage("sync", (client) => this.sendPlayerView(client));
     this.onMessage("ready", (client, payload) => this.handleReady(client, payload));
     this.onMessage("start", (client, payload) => this.handleStart(client, payload));
     this.onMessage("inspect", (client, payload) => this.handleInspect(client, payload));
@@ -183,6 +184,11 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.syncState();
   }
 
+  private sendPlayerView(client: Client) {
+    const view = getPlayerScenarioView(this.domainState, activeScenario, client.sessionId);
+    if (view) client.send("game:view", view);
+  }
+
   private sendError(client: Client, code: string) {
     client.send("game:error", { code });
   }
@@ -214,8 +220,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
 
     // Never broadcast scenario definitions or raw domain state.
     for (const client of this.clients) {
-      const view = getPlayerScenarioView(this.domainState, activeScenario, client.sessionId);
-      if (view) client.send("game:view", view);
+      this.sendPlayerView(client);
     }
   }
 }
