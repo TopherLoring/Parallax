@@ -271,6 +271,28 @@ describe("authoritative scenario session engine", () => {
     expect(state.players.filter((player) => player.connected)).toHaveLength(6);
   });
 
+  it("does not leak a shared-visibility object discovery outside the assigned perspective", () => {
+    let state = readySession();
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = inspect(state, "signals-1", "signal-receiver", 2_100);
+    state = transitionGame(state, scenario, {
+      type: "mechanism.attempt",
+      playerId: "systems-1",
+      mechanismId: "frequency-lock",
+      answer: "731",
+      actionId: "unlock-hidden-node",
+      at: 3_000,
+    });
+    state = inspect(state, "signals-1", "network-node", 3_100);
+
+    const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+    const systemsView = getPlayerScenarioView(state, scenario, "systems-1")!;
+    expect(signalsView.discoveries.some((item) => item.id === "object:network-node")).toBe(true);
+    expect(systemsView.discoveries.some((item) => item.id === "object:network-node")).toBe(false);
+    expect(JSON.stringify(systemsView)).not.toContain("Hidden Network Node");
+    expect(JSON.stringify(systemsView)).not.toContain("network-node");
+  });
+
   it("preserves only the authorized journal in reconnect snapshots", () => {
     let state = readySession();
     state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
