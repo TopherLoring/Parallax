@@ -27,6 +27,7 @@ export interface GameSessionState {
 export type GameSessionAction =
   | { type: "player.join"; player: Player }
   | { type: "player.leave"; playerId: string }
+  | { type: "player.reconnect"; playerId: string }
   | { type: "player.ready"; playerId: string; ready: boolean }
   | { type: "game.start"; at: number }
   | { type: "object.inspect"; playerId: string; objectId: string; at: number }
@@ -227,6 +228,16 @@ export function transitionGame(
           player.id === action.playerId ? { ...player, connected: false, ready: false } : player,
         ),
       };
+    case "player.reconnect": {
+      const player = state.players.find((item) => item.id === action.playerId);
+      if (!player || player.connected) return state;
+      return {
+        ...state,
+        players: state.players.map((item) =>
+          item.id === action.playerId ? { ...item, connected: true, ready: false } : item,
+        ),
+      };
+    }
     case "player.ready": {
       if (state.phase !== "lobby" || !findPlayer(state, action.playerId)) return state;
       return {
