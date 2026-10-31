@@ -69,7 +69,7 @@ export function generateRoomCode(
   for (let attempt = 0; attempt < 128; attempt += 1) {
     let code = "";
     for (let index = 0; index < ROOM_CODE_LENGTH; index += 1) {
-      code += ROOM_CODE_ALPHABET[randomInt(ROOM_CODE_ALPHABET.length)];
+      code += ROOM_CODE_ALPHABET.charAt(randomInt(ROOM_CODE_ALPHABET.length));
     }
     if (externallyUsedCodes.has(code)) continue;
     if (registry.reserve(code, expiresAt)) return code;
