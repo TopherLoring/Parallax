@@ -4,6 +4,7 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ParallaxRoom } from "./rooms/ParallaxRoom";
 import { handleHealthRequest } from "./health";
 import { handleRoomApiRequest } from "./roomApi";
+import { logEvent } from "./logger";
 
 const port = Number(process.env.PORT ?? 2567);
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
@@ -20,7 +21,7 @@ const httpServer = createServer((request, response) => {
     response.setHeader("content-type", "application/json; charset=utf-8");
     response.end(JSON.stringify({ error: "not_found" }));
   }).catch((error: unknown) => {
-    console.error("Unhandled HTTP handler error", error);
+    logEvent("error", "http.handler_error", { errorType: error instanceof Error ? error.name : "unknown" });
     if (!response.headersSent) {
       response.statusCode = 500;
       response.setHeader("content-type", "application/json; charset=utf-8");
@@ -44,10 +45,10 @@ async function start() {
   try {
     await gameServer.listen(port);
     health.ready = true;
-    console.log(`PARALLAX room server listening on :${port}`);
+    logEvent("info", "server.started", { port });
   } catch (error) {
     health.ready = false;
-    console.error("Failed to start PARALLAX server", error);
+    logEvent("error", "server.start_failed", { errorType: error instanceof Error ? error.name : "unknown" });
     process.exitCode = 1;
     httpServer.close();
   }
