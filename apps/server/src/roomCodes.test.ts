@@ -18,10 +18,12 @@ test("room code registry reserves, binds, and releases codes", () => {
   assert.equal(registry.get("ABC234", 2_000), null);
 });
 
-test("expired room codes are removed and cannot be resolved", () => {
+test("expired room codes remain reserved until their room is disposed", () => {
   const registry = new RoomCodeRegistry();
   registry.reserve("ABC234", 2_000, 1_000);
-  assert.equal(registry.get("ABC234", 2_000), null);
+  assert.deepEqual(registry.get("ABC234"), { roomId: null, expiresAt: 2_000 });
+  assert.equal(registry.reserve("ABC234", 5_000), false);
+  registry.release("ABC234");
   assert.equal(registry.size, 0);
 });
 
