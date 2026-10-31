@@ -30,7 +30,7 @@ const httpServer = createServer((request, response) => {
 });
 
 const gameServer = new Server({
-  transport: new WebSocketTransport({ server: httpServer }),
+  transport: new WebSocketTransport({ server: httpServer, maxPayload: 8 * 1024 }),
 });
 
 gameServer.define("parallax", ParallaxRoom);
