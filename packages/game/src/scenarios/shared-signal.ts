@@ -169,7 +169,6 @@ export const sharedSignalScenario = {
       ],
       acceptedAnswers: ["7-3-1", "731"],
       failedAttemptEnergyCost: 5,
-      maxAttempts: 8,
       unlockObjectIds: ["network-node"],
     },
     {
@@ -185,7 +184,6 @@ export const sharedSignalScenario = {
       ],
       acceptedAnswers: ["NORTHSTAR"],
       failedAttemptEnergyCost: 8,
-      maxAttempts: 5,
       unlockObjectIds: ["restoration-array"],
     },
     {
@@ -202,7 +200,6 @@ export const sharedSignalScenario = {
       ],
       acceptedAnswers: ["3-7-1-9", "3719"],
       failedAttemptEnergyCost: 10,
-      maxAttempts: 3,
       unlockObjectIds: [],
     },
   ],
