@@ -27,6 +27,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   private roomCode = "";
   private expiresAt = 0;
   private hostPlayerId = "";
+  private gameTimer: { clear: () => void } | null = null;
 
   async onCreate(options: unknown) {
     const parsed = roomCreateOptionsSchema.parse(options);
@@ -113,6 +114,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   }
 
   onDispose() {
+    this.stopGameTimer();
     roomCodeRegistry.release(this.roomCode);
     this.domainState = createGameSession(activeScenario);
   }
@@ -150,6 +152,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     if (next === this.domainState) return this.sendError(client, "players_not_ready_or_roles_missing");
     this.domainState = next;
     this.lock();
+    this.startGameTimer();
     this.syncState();
   }
 
@@ -201,6 +204,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     });
     if (next === this.domainState) return this.sendError(client, "attempt_rejected");
     this.domainState = next;
+    if (next.phase !== "active") this.stopGameTimer();
     const solved = !solvedBefore && next.solvedMechanismIds.includes(mechanismId);
     client.send("game:attempt-result", {
       actionId,
@@ -221,7 +225,32 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     client.send("game:error", { code });
   }
 
-  private syncState() {
+  private startGameTimer() {
+    this.stopGameTimer();
+    this.gameTimer = this.clock.setInterval(() => this.tickGame(), 1_000);
+  }
+
+  private stopGameTimer() {
+    this.gameTimer?.clear();
+    this.gameTimer = null;
+  }
+
+  private tickGame() {
+    if (this.domainState.phase !== "active") {
+      this.stopGameTimer();
+      return;
+    }
+    const next = transitionGame(this.domainState, activeScenario, {
+      type: "game.tick",
+      at: Date.now(),
+    });
+    this.domainState = next;
+    const becameTerminal = next.phase !== "active";
+    if (becameTerminal) this.stopGameTimer();
+    this.syncState(becameTerminal);
+  }
+
+  private syncState(sendPrivateViews = true) {
     const state = this.state;
     state.phase = this.domainState.phase;
     state.roomCode = this.roomCode;
@@ -229,6 +258,9 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     state.scenarioTitle = activeScenario.title;
     state.energy = this.domainState.energy;
     state.deadline = this.domainState.deadline ?? 0;
+    state.remainingSeconds = this.domainState.phase === "active" && this.domainState.deadline !== null
+      ? Math.max(0, Math.ceil((this.domainState.deadline - Date.now()) / 1_000))
+      : 0;
 
     state.players.splice(0, state.players.length);
     for (const player of this.domainState.players) {
@@ -246,6 +278,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     }
 
     // Never broadcast scenario definitions or raw domain state.
+    if (!sendPrivateViews) return;
     for (const client of this.clients) {
       this.sendPlayerView(client);
     }
