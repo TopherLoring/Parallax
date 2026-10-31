@@ -40,7 +40,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     });
 
     this.clock.setTimeout(() => {
-      if (Date.now() < this.expiresAt) return;
+      if (Date.now() < this.expiresAt || this.domainState.phase !== "lobby") return;
       this.lock();
       void this.disconnect();
     }, Math.max(0, this.expiresAt - Date.now()));
@@ -55,8 +55,8 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   }
 
   onAuth(_client: Client, options: unknown) {
-    if (Date.now() >= this.expiresAt) throw new Error("room_expired");
     if (this.domainState.phase !== "lobby") throw new Error("room_already_started");
+    if (Date.now() >= this.expiresAt) throw new Error("room_expired");
     joinOptionsSchema.parse(options);
     return true;
   }
