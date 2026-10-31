@@ -110,7 +110,7 @@ export async function handleRoomApiRequest(
       allocatedCode = roomCode;
       const room = await dependencies.matchMaker.createRoom(ROOM_TYPE, { roomCode, expiresAt });
       dependencies.registry.bind(roomCode, room.roomId);
-      let reservation;
+      let reservation: Awaited<ReturnType<typeof dependencies.matchMaker.joinById>>;
       try {
         reservation = await dependencies.matchMaker.joinById(room.roomId, { displayName: body.displayName });
       } catch (error) {
