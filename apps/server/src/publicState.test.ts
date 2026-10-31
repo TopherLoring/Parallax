@@ -12,7 +12,7 @@ test("synchronized room schema exposes public status without private game data",
   assert.equal(player.connected, false);
   assert.equal(player.ready, false);
 
-  for (const secretField of ["acceptedAnswers", "discoveries", "clues", "prerequisites", "scenario"]) {
+  for (const secretField of ["acceptedAnswers", "discoveries", "clues", "prerequisites", "scenario", "roleId", "roleName"]) {
     assert.equal(secretField in state, false);
     assert.equal(secretField in player, false);
   }
