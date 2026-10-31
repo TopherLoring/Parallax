@@ -337,7 +337,7 @@ export default function App() {
                       </div>
                       <p>{discovery.content}</p>
                       <div className="evidence-meta">SOURCE: {discovery.sourceObjectName} · FOUND BY: {discovery.discoveredByName}</div>
-                      {canRevisit && <button className="revisit-button" type="button" onClick={() => room.send("inspect", { objectId: discovery.sourceObjectId })}>REVISIT SOURCE ↗</button>}
+                      {canRevisit && <button className="revisit-button" type="button" aria-label={`Revisit ${discovery.sourceObjectName}`} onClick={() => room.send("inspect", { objectId: discovery.sourceObjectId })}>REVISIT SOURCE ↗</button>}
                     </article>
                   );
                 })}
@@ -390,7 +390,7 @@ export default function App() {
                   </>
                 )}
                 {privateView.outcome && (
-                  <section className={`results-panel ${privateView.outcome.kind === "victory" ? "results-victory" : "results-failure"}`}>
+                  <section role="status" aria-live="polite" className={`results-panel ${privateView.outcome.kind === "victory" ? "results-victory" : "results-failure"}`}>
                     <div className="results-kicker">SESSION COMPLETE</div>
                     <h3>{privateView.outcome.kind === "victory" ? "SIGNAL RESTORED" : "TRANSMISSION LOST"}</h3>
                     <p>{privateView.outcome.kind === "victory"
@@ -408,7 +408,7 @@ export default function App() {
                       : <small className="rematch-wait">WAITING FOR HOST TO START A REMATCH</small>}
                   </section>
                 )}
-              </div>
+              </section>
             )}
             <button className="leave-button" type="button" onClick={leaveRoom}>LEAVE ROOM</button>
           </div>
