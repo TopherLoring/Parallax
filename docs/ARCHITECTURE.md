@@ -29,7 +29,7 @@ The room server:
 The synchronized Colyseus schema contains only:
 - room phase and code;
 - host session ID;
-- public player identity, role label, connection and ready status;
+- public player identity, connection and ready status; role names and role IDs remain private to the assigned player projection;
 - shared energy, deadline, and solved mechanism IDs.
 
 It never contains:
