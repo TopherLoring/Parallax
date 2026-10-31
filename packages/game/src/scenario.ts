@@ -97,7 +97,7 @@ export const scenarioSchema = z.object({
   durationSeconds: z.number().int().min(60).max(3_600),
   startingEnergy: z.number().int().min(1).max(10_000),
   perspectives: z.array(perspectiveSchema).min(2).max(6),
-  requiredRoleIds: z.array(id).min(2).default([]),
+  requiredRoleIds: z.array(id).default([]),
   objects: z.array(objectSchema).min(1),
   clues: z.array(clueSchema),
   mechanisms: z.array(mechanismSchema),
