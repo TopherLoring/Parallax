@@ -14,7 +14,7 @@ export const discoveryVisibilitySchema = z.discriminatedUnion("kind", [
 ]);
 
 export type PrerequisiteInput =
-  | { kind: "clue-discovered"; clueId: string; by?: "any-player" | "same-player" | "different-player" }
+  | { kind: "clue-discovered"; clueId: string; by?: "any-player" | "same-player" | "different-player" | undefined }
   | { kind: "object-discovered"; objectId: string }
   | { kind: "mechanism-solved"; mechanismId: string }
   | { kind: "all" | "any"; requirements: PrerequisiteInput[] };
