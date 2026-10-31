@@ -57,6 +57,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     });
     this.onMessage("ready", (client, payload) => this.handleReady(client, payload));
     this.onMessage("start", (client, payload) => this.handleStart(client, payload));
+    this.onMessage("restart", (client, payload) => this.handleRestart(client, payload));
     this.onMessage("inspect", (client, payload) => this.handleInspect(client, payload));
     this.onMessage("attempt", (client, payload) => this.handleAttempt(client, payload));
     this.syncState();
@@ -153,6 +154,26 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.domainState = next;
     this.lock();
     this.startGameTimer();
+    this.syncState();
+  }
+
+  private handleRestart(client: Client, payload: unknown) {
+    if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_restart_message");
+    if (client.sessionId !== this.hostPlayerId) return this.sendError(client, "host_only");
+    const next = transitionGame(this.domainState, activeScenario, {
+      type: "game.restart",
+      playerId: client.sessionId,
+    });
+    if (next === this.domainState) return this.sendError(client, "restart_not_allowed");
+    this.stopGameTimer();
+    this.domainState = next;
+    this.unlock();
+    void this.setMetadata({
+      game: "parallax",
+      roomCode: this.roomCode,
+      expiresAt: this.expiresAt,
+      phase: "lobby",
+    });
     this.syncState();
   }
 
