@@ -10,6 +10,7 @@ export const sharedSignalScenario = {
     "A damaged relay has isolated a remote settlement. Two operators must combine system diagnostics and intercepted transmissions to restore the network before the station loses power.",
   durationSeconds: 480,
   startingEnergy: 100,
+  requiredRoleIds: ["systems", "signals"],
   perspectives: [
     {
       id: "systems",
