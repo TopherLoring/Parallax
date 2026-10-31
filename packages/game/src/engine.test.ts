@@ -4,8 +4,8 @@ import {
   canDiscoverClue,
   canInspectObject,
   createGameSession,
-  getPlayerScenarioView,
   evaluatePrerequisite,
+  getPlayerScenarioView,
   transitionGame,
 } from "./engine";
 import { scenarioSchema } from "./scenario";
@@ -29,32 +29,22 @@ function readySession() {
   return state;
 }
 
-function inspectAndDiscover(
+function inspect(
   state: ReturnType<typeof readySession>,
   playerId: string,
   objectId: string,
-  clueIds: string[],
   at: number,
 ) {
-  let next = transitionGame(state, scenario, {
+  return transitionGame(state, scenario, {
     type: "object.inspect",
     playerId,
     objectId,
     at,
   });
-  for (const clueId of clueIds) {
-    next = transitionGame(next, scenario, {
-      type: "clue.discover",
-      playerId,
-      clueId,
-      at: at + 1,
-    });
-  }
-  return next;
 }
 
 describe("authoritative scenario session engine", () => {
-  it("requires two connected, ready players before starting", () => {
+  it("requires two connected, ready players and all required roles before starting", () => {
     let state = createGameSession(scenario);
     state = transitionGame(state, scenario, {
       type: "player.join",
@@ -71,7 +61,7 @@ describe("authoritative scenario session engine", () => {
     expect(transitionGame(state, scenario, { type: "game.start", at: 100 }).phase).toBe("active");
   });
 
-  it("requires the scenario's critical roles to be represented before starting", () => {
+  it("rejects a team that does not represent every scenario-critical role", () => {
     let state = createGameSession(scenario);
     for (const id of ["one", "two"]) {
       state = transitionGame(state, scenario, {
@@ -95,7 +85,7 @@ describe("authoritative scenario session engine", () => {
 
   it("evaluates same-player and different-player clue prerequisites", () => {
     let state = readySession();
-    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase"], 2_000);
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
     expect(evaluatePrerequisite(state, { kind: "clue-discovered", clueId: "power-phase", by: "same-player" }, "systems-1")).toBe(true);
     expect(evaluatePrerequisite(state, { kind: "clue-discovered", clueId: "power-phase", by: "different-player" }, "systems-1")).toBe(false);
     expect(evaluatePrerequisite(state, { kind: "clue-discovered", clueId: "power-phase", by: "different-player" }, "signals-1")).toBe(true);
@@ -105,9 +95,12 @@ describe("authoritative scenario session engine", () => {
     let state = readySession();
     const initialEnergy = state.energy;
 
-    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase", "pulse-cadence"], 2_000);
-    state = inspectAndDiscover(state, "signals-1", "signal-receiver", ["carrier-offset", "relay-polarity"], 2_100);
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = inspect(state, "signals-1", "signal-receiver", 2_100);
     expect(state.energy).toBe(initialEnergy);
+    expect(state.discoveries.map((item) => item.clueId).filter(Boolean)).toEqual([
+      "power-phase", "pulse-cadence", "carrier-offset", "relay-polarity",
+    ]);
     expect(canAttemptMechanism(state, scenario, state.players[0]!, "frequency-lock")).toBe(true);
 
     state = transitionGame(state, scenario, {
@@ -120,18 +113,9 @@ describe("authoritative scenario session engine", () => {
     });
     expect(state.solvedMechanismIds).toContain("frequency-lock");
 
-    state = transitionGame(state, scenario, {
-      type: "object.inspect",
-      playerId: "signals-1",
-      objectId: "signal-receiver",
-      at: 3_100,
-    });
-    state = transitionGame(state, scenario, {
-      type: "clue.discover",
-      playerId: "signals-1",
-      clueId: "routing-echo",
-      at: 3_101,
-    });
+    // Re-inspection reveals the previously locked routing clue without a fee.
+    state = inspect(state, "signals-1", "signal-receiver", 3_100);
+    expect(state.discoveries.some((item) => item.clueId === "routing-echo")).toBe(true);
     state = transitionGame(state, scenario, {
       type: "mechanism.attempt",
       playerId: "signals-1",
@@ -142,18 +126,9 @@ describe("authoritative scenario session engine", () => {
     });
     expect(state.solvedMechanismIds).toContain("network-auth");
 
-    state = transitionGame(state, scenario, {
-      type: "object.inspect",
-      playerId: "systems-1",
-      objectId: "diagnostic-terminal",
-      at: 3_300,
-    });
-    state = transitionGame(state, scenario, {
-      type: "clue.discover",
-      playerId: "systems-1",
-      clueId: "restoration-sequence",
-      at: 3_301,
-    });
+    // The recovery sequence becomes discoverable only after network authentication.
+    state = inspect(state, "systems-1", "diagnostic-terminal", 3_300);
+    expect(state.discoveries.some((item) => item.clueId === "restoration-sequence")).toBe(true);
     state = transitionGame(state, scenario, {
       type: "mechanism.attempt",
       playerId: "systems-1",
@@ -167,10 +142,10 @@ describe("authoritative scenario session engine", () => {
     expect(state.outcome).toEqual({ kind: "victory", completedAt: 3_400 });
   });
 
-  it("charges a failed consequential attempt once and deduplicates retries", () => {
+  it("charges a failed consequential attempt once and deduplicates normalized retry keys", () => {
     let state = readySession();
-    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase", "pulse-cadence"], 2_000);
-    state = inspectAndDiscover(state, "signals-1", "signal-receiver", ["carrier-offset"], 2_100);
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = inspect(state, "signals-1", "signal-receiver", 2_100);
     const before = state.energy;
     const attempt = {
       type: "mechanism.attempt" as const,
@@ -189,7 +164,7 @@ describe("authoritative scenario session engine", () => {
 
   it("does not expose answer keys or undiscovered private clues in player views", () => {
     let state = readySession();
-    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase"], 2_000);
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
     const systemsView = getPlayerScenarioView(state, scenario, "systems-1");
     const signalsView = getPlayerScenarioView(state, scenario, "signals-1");
     expect(systemsView).not.toBeNull();
@@ -199,7 +174,7 @@ describe("authoritative scenario session engine", () => {
     expect(signalsView?.discoveries.some((item) => item.clueId === "power-phase")).toBe(false);
   });
 
-  it("enforces the six-player cap and rejects duplicate identities or unknown roles", () => {
+  it("enforces the six-connected-player cap and rejects duplicate identities or unknown roles", () => {
     let state = createGameSession(scenario);
     for (let index = 0; index < 6; index += 1) {
       state = transitionGame(state, scenario, {
@@ -260,8 +235,8 @@ describe("authoritative scenario session engine", () => {
     let state = readySession();
     const signals = state.players.find((player) => player.id === "signals-1")!;
     expect(canInspectObject(state, scenario, signals, "network-node")).toBe(false);
-    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase", "pulse-cadence"], 2_000);
-    state = inspectAndDiscover(state, "signals-1", "signal-receiver", ["carrier-offset"], 2_100);
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = inspect(state, "signals-1", "signal-receiver", 2_100);
     state = transitionGame(state, scenario, {
       type: "mechanism.attempt",
       playerId: "systems-1",
@@ -275,8 +250,8 @@ describe("authoritative scenario session engine", () => {
 
   it("loses when repeated distinct failed attempts exhaust shared energy", () => {
     let state = readySession();
-    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase", "pulse-cadence"], 2_000);
-    state = inspectAndDiscover(state, "signals-1", "signal-receiver", ["carrier-offset"], 2_100);
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = inspect(state, "signals-1", "signal-receiver", 2_100);
     for (let index = 0; index < 20 && state.phase === "active"; index += 1) {
       state = transitionGame(state, scenario, {
         type: "mechanism.attempt",
