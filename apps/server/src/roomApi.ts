@@ -101,8 +101,13 @@ export async function handleRoomApiRequest(
         json(response, 410, { error: "room_code_expired" });
         return true;
       }
-      const reservation = await matchMaker.joinById(room.roomId, { displayName: body.displayName });
-      json(response, 200, { roomCode, reservation });
+      try {
+        const reservation = await matchMaker.joinById(room.roomId, { displayName: body.displayName });
+        json(response, 200, { roomCode, reservation });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "room_unavailable";
+        json(response, 409, { error: "room_unavailable", detail });
+      }
       return true;
     }
 
@@ -118,7 +123,10 @@ export async function handleRoomApiRequest(
       return true;
     }
     const message = error instanceof Error ? error.message : "request_failed";
-    const status = message === "body_too_large" ? 413 : message === "content_type_required" ? 415 : 400;
+    const status = message === "body_too_large" ? 413
+      : message === "content_type_required" ? 415
+      : message === "body_required" || error instanceof SyntaxError ? 400
+      : 503;
     json(response, status, { error: message });
     return true;
   }
