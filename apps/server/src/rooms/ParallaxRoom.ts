@@ -160,11 +160,18 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     if (this.domainState.phase !== "active" || !player || !canInspectObject(this.domainState, activeScenario, player, parsed.data.objectId)) {
       return this.sendError(client, "object_unavailable");
     }
+    const discoveriesBefore = this.domainState.discoveries.length;
     this.domainState = transitionGame(this.domainState, activeScenario, {
       type: "object.inspect",
       playerId: client.sessionId,
       objectId: parsed.data.objectId,
       at: Date.now(),
+    });
+    const newEvidenceCount = this.domainState.discoveries.length - discoveriesBefore;
+    client.send("game:inspect-result", {
+      objectId: parsed.data.objectId,
+      result: newEvidenceCount > 0 ? "new-evidence" : "already-known",
+      newEvidenceCount,
     });
     this.syncState();
   }
