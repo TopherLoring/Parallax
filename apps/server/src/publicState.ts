@@ -15,6 +15,7 @@ export class ParallaxPublicState extends Schema {
   @type("number") energy = 100;
   /** 0 means the game has not started; timestamps are epoch milliseconds. */
   @type("number") deadline = 0;
+  @type("number") remainingSeconds = 0;
   @type([PublicPlayerState]) players = new ArraySchema<PublicPlayerState>();
   @type(["string"]) solvedMechanismIds = new ArraySchema<string>();
 }
