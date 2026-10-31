@@ -43,7 +43,7 @@ export interface PlayerScenarioView {
   deadline: number | null;
   solvedMechanismIds: string[];
   discoveries: Array<Pick<Discovery, "id" | "clueId" | "title" | "content" | "discoveredBy" | "discoveredAt" | "sourceObjectId"> & { sourceObjectName: string; discoveredByName: string }>;
-  objects: Array<{ id: string; name: string; description: string; areaId: string }>;
+  objects: Array<{ id: string; name: string; description: string; areaId: string; status: "available" | "locked" | "used"; canInspect: boolean }>;
   mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
   outcome: GameOutcome | null;
@@ -371,8 +371,21 @@ export function getPlayerScenarioView(
 
   const discoveries = state.discoveries.filter((item) => isVisibleToPlayer(item.visibility ?? { kind: "shared" }, player));
   const objects = scenario.objects
-    .filter((object) => canInspectObject(state, scenario, player, object.id))
-    .map(({ id, name, description, areaId }) => ({ id, name, description, areaId }));
+    .filter((object) =>
+      perspective.visibleObjectIds.includes(object.id) && isVisibleToPlayer(object.visibility, player),
+    )
+    .map((object) => {
+      const canInspect = canInspectObject(state, scenario, player, object.id);
+      const used = isDiscovered(state, `object:${object.id}`);
+      return {
+        id: object.id,
+        name: object.name,
+        description: object.description,
+        areaId: object.areaId,
+        status: used ? "used" as const : canInspect ? "available" as const : "locked" as const,
+        canInspect,
+      };
+    });
   const mechanisms = scenario.mechanisms
     .filter((mechanism) => canAttemptMechanism(state, scenario, player, mechanism.id))
     .map(({ id, name, description }) => ({ id, name, description }));
