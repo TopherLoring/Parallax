@@ -69,6 +69,7 @@ export async function handleRoomApiRequest(
     return true;
   }
 
+  let allocatedCode: string | null = null;
   try {
     if (path === "/api/rooms") {
       const body = createRoomRequestSchema.parse(await readJson(request));
@@ -77,6 +78,7 @@ export async function handleRoomApiRequest(
       const rooms = await matchMaker.query({ name: ROOM_TYPE });
       const used = new Set(rooms.map((room) => roomMetadata(room).roomCode).filter((value): value is string => typeof value === "string"));
       const roomCode = generateRoomCode(roomCodeRegistry, used, expiresAt);
+      allocatedCode = roomCode;
       const room = await matchMaker.createRoom(ROOM_TYPE, { roomCode, expiresAt });
       roomCodeRegistry.bind(roomCode, room.roomId);
       const reservation = await matchMaker.joinById(room.roomId, { displayName: body.displayName });
@@ -107,6 +109,7 @@ export async function handleRoomApiRequest(
     json(response, 404, { error: "not_found" });
     return true;
   } catch (error) {
+    if (allocatedCode) roomCodeRegistry.release(allocatedCode);
     if (error instanceof ZodError) {
       json(response, 400, { error: "invalid_request", issues: error.issues.map((issue) => ({
         path: issue.path.join("."),
