@@ -96,7 +96,10 @@ export const scenarioSchema = z.object({
   durationSeconds: z.number().int().min(60).max(3_600),
   startingEnergy: z.number().int().min(1).max(10_000),
   perspectives: z.array(perspectiveSchema).min(2).max(6),
-  requiredRoleIds: z.array(id).default([]),
+  requiredRoleIds: z.array(id)
+    .refine((roles) => roles.length === 0 || roles.length >= 2, "At least two required roles must be declared")
+    .refine((roles) => new Set(roles).size === roles.length, "Required role IDs must be unique")
+    .default([]),
   objects: z.array(objectSchema).min(1),
   clues: z.array(clueSchema),
   mechanisms: z.array(mechanismSchema),
