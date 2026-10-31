@@ -70,6 +70,18 @@ describe("authoritative scenario session engine", () => {
     expect(transitionGame(state, scenario, { type: "game.start", at: 100 }).phase).toBe("active");
   });
 
+  it("requires the scenario's critical roles to be represented before starting", () => {
+    let state = createGameSession(scenario);
+    for (const id of ["one", "two"]) {
+      state = transitionGame(state, scenario, {
+        type: "player.join",
+        player: { id, displayName: id, connected: true, roleId: "systems" },
+      });
+      state = transitionGame(state, scenario, { type: "player.ready", playerId: id, ready: true });
+    }
+    expect(transitionGame(state, scenario, { type: "game.start", at: 500 }).phase).toBe("lobby");
+  });
+
   it("enforces role visibility and complementary clue access", () => {
     const state = readySession();
     const systems = state.players.find((player) => player.id === "systems-1")!;
