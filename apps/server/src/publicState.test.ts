@@ -8,6 +8,7 @@ test("synchronized room schema exposes public status without private game data",
 
   assert.equal(state.phase, "lobby");
   assert.equal(state.energy, 100);
+  assert.equal(state.remainingSeconds, 0);
   assert.ok(state.players);
   assert.equal(player.connected, false);
   assert.equal(player.ready, false);
