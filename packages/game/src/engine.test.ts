@@ -214,6 +214,8 @@ describe("authoritative scenario session engine", () => {
     expect(forged).toBe(state);
     const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
     expect(JSON.stringify(signalsView)).not.toContain("power-phase");
+    expect(JSON.stringify(signalsView)).not.toContain("Systems Operator");
+    expect(signalsView.player.role.name).toBe("Signal Analyst");
   });
 
   it("does not expose answer keys or undiscovered private clues in player views", () => {
