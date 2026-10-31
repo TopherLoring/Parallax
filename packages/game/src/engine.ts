@@ -42,7 +42,7 @@ export interface PlayerScenarioView {
   deadline: number | null;
   discoveries: Array<Pick<Discovery, "id" | "clueId" | "title" | "content" | "discoveredBy" | "discoveredAt">>;
   objects: Array<{ id: string; name: string; description: string; areaId: string }>;
-  mechanisms: Array<{ id: string; name: string; description: string; attemptsRemaining: number | null }>;
+  mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
   outcome: GameOutcome | null;
 }
@@ -129,13 +129,17 @@ export function canInspectObject(
 ): boolean {
   const perspective = findPerspective(scenario, player);
   const object = scenario.objects.find((item) => item.id === objectId);
+  const inspectActions = scenario.actions.filter(
+    (action) => action.kind === "inspect-object" && action.targetObjectId === objectId,
+  );
   return Boolean(
     perspective &&
     object &&
     object.inspectable &&
     perspective.visibleObjectIds.includes(objectId) &&
     isVisibleToPlayer(object.visibility, player) &&
-    isObjectUnlocked(scenario, state, objectId),
+    isObjectUnlocked(scenario, state, objectId) &&
+    inspectActions.some((action) => prerequisitesMet(state, action.prerequisites, player.id)),
   );
 }
 
@@ -166,8 +170,11 @@ export function canAttemptMechanism(
   const mechanism = scenario.mechanisms.find((item) => item.id === mechanismId);
   if (!perspective || !mechanism || !perspective.usableMechanismIds.includes(mechanismId)) return false;
   if (state.solvedMechanismIds.includes(mechanismId)) return false;
-  if (mechanism.maxAttempts !== undefined && (state.mechanismAttempts[mechanismId] ?? 0) >= mechanism.maxAttempts) return false;
-  return prerequisitesMet(state, mechanism.prerequisites, player.id);
+  const attemptActions = scenario.actions.filter(
+    (action) => action.kind === "attempt-mechanism" && action.targetMechanismId === mechanismId,
+  );
+  return prerequisitesMet(state, mechanism.prerequisites, player.id) &&
+    attemptActions.some((action) => prerequisitesMet(state, action.prerequisites, player.id));
 }
 
 function withDiscovery(
@@ -328,14 +335,7 @@ export function getPlayerScenarioView(
     .map(({ id, name, description, areaId }) => ({ id, name, description, areaId }));
   const mechanisms = scenario.mechanisms
     .filter((mechanism) => canAttemptMechanism(state, scenario, player, mechanism.id))
-    .map((mechanism) => ({
-      id: mechanism.id,
-      name: mechanism.name,
-      description: mechanism.description,
-      attemptsRemaining: mechanism.maxAttempts === undefined
-        ? null
-        : Math.max(0, mechanism.maxAttempts - (state.mechanismAttempts[mechanism.id] ?? 0)),
-    }));
+    .map(({ id, name, description }) => ({ id, name, description }));
   const actions = state.phase === "active" ? scenario.actions.flatMap((action) => {
     if (action.kind === "inspect-object") {
       const object = scenario.objects.find((item) => item.id === action.targetObjectId);
