@@ -237,7 +237,7 @@ describe("authoritative scenario session engine", () => {
     let state = readySession();
     const signals = state.players.find((player) => player.id === "signals-1")!;
     expect(
-      (awaitableCanInspect(state, signals, "network-node")),
+      (canInspectObject(state, scenario, signals, "network-node")),
     ).toBe(false);
     state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase", "pulse-cadence"], 2_000);
     state = inspectAndDiscover(state, "signals-1", "signal-receiver", ["carrier-offset"], 2_100);
