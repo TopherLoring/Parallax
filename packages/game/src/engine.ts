@@ -72,7 +72,7 @@ function findPerspective(scenario: ScenarioDefinition, player: Player) {
 }
 
 function isVisibleToPlayer(
-  visibility: { kind: "shared" } | { kind: "player"; playerIds: string[] } | { kind: "role"; roleIds: string[] },
+  visibility: { kind: "shared" } | { kind: "player"; playerIds: readonly string[] } | { kind: "role"; roleIds: readonly string[] },
   player: Player,
 ): boolean {
   if (visibility.kind === "shared") return true;
@@ -150,6 +150,7 @@ export function canDiscoverClue(
   const clue = scenario.clues.find((item) => item.id === clueId);
   if (!perspective || !clue || !perspective.visibleClueIds.includes(clueId)) return false;
   if (!isVisibleToPlayer(clue.visibility, player)) return false;
+  if (!canInspectObject(state, scenario, player, clue.sourceObjectId)) return false;
   if (!isDiscovered(state, `object:${clue.sourceObjectId}`)) return false;
   return prerequisitesMet(state, clue.prerequisites, player.id);
 }
