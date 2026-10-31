@@ -92,6 +92,11 @@ export default function App() {
       setError(payload.code.replaceAll("_", " "));
     });
     room.send("sync", {});
+    room.onMessage("game:inspect-result", (payload: { result: string; newEvidenceCount: number }) => {
+      setNotice(payload.result === "new-evidence"
+        ? `${payload.newEvidenceCount} new evidence item(s) added to your journal.`
+        : "No new evidence. You can revisit this source anytime at no energy cost.");
+    });
     room.onMessage("game:attempt-result", (payload: { result: string; energy: number }) => {
       setNotice(payload.result === "solved" ? "Mechanism solved." : payload.result === "incorrect" ? `Incorrect attempt. ${payload.energy} energy remaining.` : "Attempt accepted.");
     });
