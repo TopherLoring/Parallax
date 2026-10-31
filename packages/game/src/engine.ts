@@ -40,6 +40,7 @@ export interface PlayerScenarioView {
   phase: GamePhase;
   energy: number;
   deadline: number | null;
+  solvedMechanismIds: string[];
   discoveries: Array<Pick<Discovery, "id" | "clueId" | "title" | "content" | "discoveredBy" | "discoveredAt">>;
   objects: Array<{ id: string; name: string; description: string; areaId: string }>;
   mechanisms: Array<{ id: string; name: string; description: string }>;
@@ -364,6 +365,7 @@ export function getPlayerScenarioView(
     phase: state.phase,
     energy: state.energy,
     deadline: state.deadline,
+    solvedMechanismIds: [...state.solvedMechanismIds],
     discoveries: discoveries.map(({ id, clueId, title, content, discoveredBy, discoveredAt }) => ({
       id, clueId, title, content, discoveredBy, discoveredAt,
     })),
