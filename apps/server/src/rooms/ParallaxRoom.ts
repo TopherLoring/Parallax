@@ -13,6 +13,7 @@ import { ParallaxPublicState, PublicPlayerState } from "../publicState";
 import { roomCodeRegistry } from "../roomCodes";
 import {
   attemptMessageSchema,
+  emptyMessageSchema,
   inspectMessageSchema,
   joinOptionsSchema,
   roomCreateOptionsSchema,
@@ -45,8 +46,14 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       void this.disconnect();
     }, Math.max(0, this.expiresAt - Date.now()));
 
-    this.onMessage("ping", (client) => client.send("pong", { at: Date.now() }));
-    this.onMessage("sync", (client) => this.sendPlayerView(client));
+    this.onMessage("ping", (client, payload) => {
+      if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_ping_message");
+      client.send("pong", { at: Date.now() });
+    });
+    this.onMessage("sync", (client, payload) => {
+      if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_sync_message");
+      this.sendPlayerView(client);
+    });
     this.onMessage("ready", (client, payload) => this.handleReady(client, payload));
     this.onMessage("start", (client, payload) => this.handleStart(client, payload));
     this.onMessage("inspect", (client, payload) => this.handleInspect(client, payload));
