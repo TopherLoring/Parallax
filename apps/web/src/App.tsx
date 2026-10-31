@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Room } from "colyseus.js";
-import { createRoom, joinRoom } from "./lib/rooms";
+import { clearStoredRoom, createRoom, joinRoom, reconnectRoom } from "./lib/rooms";
 
 interface PublicPlayer {
   id: string;
@@ -62,6 +62,22 @@ export default function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const reconnectAttempted = useRef(false);
+
+  useEffect(() => {
+    if (reconnectAttempted.current) return;
+    reconnectAttempted.current = true;
+    if (!sessionStorage.getItem("parallax.reconnectionToken")) return;
+    setError("Restoring your previous room…");
+    void reconnectRoom().then((result) => {
+      setRoomCode(result.roomCode);
+      setRoom(result.room);
+      setError("");
+    }).catch(() => {
+      clearStoredRoom();
+      setError("Your previous room session has expired. Create or join a room.");
+    });
+  }, []);
 
   useEffect(() => {
     if (!room) return;
@@ -75,16 +91,28 @@ export default function App() {
     room.onMessage("game:attempt-result", (payload: { result: string; energy: number }) => {
       setNotice(payload.result === "solved" ? "Mechanism solved." : payload.result === "incorrect" ? `Incorrect attempt. ${payload.energy} energy remaining.` : "Attempt accepted.");
     });
-    room.onLeave((code) => {
+    room.onLeave(() => {
+      if (sessionStorage.getItem("parallax.reconnectionToken")) {
+        setError("Connection interrupted. Reconnecting…");
+        void reconnectRoom().then((result) => {
+          setRoomCode(result.roomCode);
+          setRoom(result.room);
+          setError("");
+        }).catch(() => {
+          clearStoredRoom();
+          setRoom(null);
+          setRoomSnapshot(null);
+          setPrivateView(null);
+          setError("Reconnection failed. Join again with the room code.");
+        });
+        return;
+      }
       setRoom(null);
       setRoomSnapshot(null);
       setPrivateView(null);
-      setError(code === 1000 ? "You left the room." : "Connection closed. Rejoin with the room code.");
+      setError("You left the room.");
     });
     if (room.state) sync(room.state);
-    return () => {
-      void room.leave();
-    };
   }, [room]);
 
   async function connect(action: "create" | "join") {
@@ -114,6 +142,7 @@ export default function App() {
   }
 
   function leaveRoom() {
+    clearStoredRoom();
     const current = room;
     setRoom(null);
     setRoomSnapshot(null);
