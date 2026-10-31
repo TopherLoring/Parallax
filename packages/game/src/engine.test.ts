@@ -73,6 +73,18 @@ describe("authoritative scenario session engine", () => {
     expect(transitionGame(state, scenario, { type: "game.start", at: 500 }).phase).toBe("lobby");
   });
 
+  it("reconnects a disconnected session without duplicating its player", () => {
+    let state = readySession();
+    state = transitionGame(state, scenario, { type: "player.leave", playerId: "signals-1" });
+    expect(state.players.find((player) => player.id === "signals-1")?.connected).toBe(false);
+    state = transitionGame(state, scenario, { type: "player.reconnect", playerId: "signals-1" });
+    const reconnected = state.players.find((player) => player.id === "signals-1");
+    expect(state.players).toHaveLength(2);
+    expect(reconnected?.connected).toBe(true);
+    expect(reconnected?.roleId).toBe("signals");
+    expect(reconnected?.ready).toBe(false);
+  });
+
   it("enforces role visibility and complementary clue access", () => {
     const state = readySession();
     const systems = state.players.find((player) => player.id === "systems-1")!;
