@@ -55,6 +55,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
 
   onAuth(_client: Client, options: unknown) {
     if (Date.now() >= this.expiresAt) throw new Error("room_expired");
+    if (this.domainState.phase !== "lobby") throw new Error("room_already_started");
     joinOptionsSchema.parse(options);
     return true;
   }
@@ -126,6 +127,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     });
     if (next === this.domainState) return this.sendError(client, "players_not_ready_or_roles_missing");
     this.domainState = next;
+    this.lock();
     this.syncState();
   }
 
@@ -133,7 +135,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     const parsed = inspectMessageSchema.safeParse(payload);
     if (!parsed.success) return this.sendError(client, "invalid_inspect_message");
     const player = this.domainState.players.find((item) => item.id === client.sessionId && item.connected);
-    if (!player || !canInspectObject(this.domainState, activeScenario, player, parsed.data.objectId)) {
+    if (this.domainState.phase !== "active" || !player || !canInspectObject(this.domainState, activeScenario, player, parsed.data.objectId)) {
       return this.sendError(client, "object_unavailable");
     }
     this.domainState = transitionGame(this.domainState, activeScenario, {
