@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { Server } from "colyseus";
+import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ParallaxRoom } from "./rooms/ParallaxRoom";
 import { handleHealthRequest } from "./health";
@@ -34,6 +34,8 @@ const gameServer = new Server({
 });
 
 gameServer.define("parallax", ParallaxRoom);
+// All matchmaking is routed through the validated HTTP API; clients only consume server-issued reservations.
+matchMaker.controller.exposedMethods = ["reconnect"];
 gameServer.onBeforeShutdown(() => {
   health.ready = false;
 });
