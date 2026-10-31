@@ -1,5 +1,3 @@
-import type { ScenarioDefinition } from "../scenario";
-
 /**
  * Server-owned scenario content. Do not import this module into browser code:
  * it contains accepted answers and the complete hidden puzzle graph.
@@ -220,4 +218,4 @@ export const sharedSignalScenario = {
   ],
   failureConditions: ["timeout", "energy-depleted"],
   winCondition: [{ kind: "mechanism-solved", mechanismId: "relay-restoration" }],
-} satisfies ScenarioDefinition;
+} as const;
