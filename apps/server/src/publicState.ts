@@ -3,7 +3,6 @@ import { ArraySchema, Schema, type } from "@colyseus/schema";
 export class PublicPlayerState extends Schema {
   @type("string") id = "";
   @type("string") displayName = "";
-  @type("string") roleName = "";
   @type("boolean") connected = false;
   @type("boolean") ready = false;
 }
