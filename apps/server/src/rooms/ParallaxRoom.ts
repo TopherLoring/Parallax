@@ -1,4 +1,4 @@
-import { Room, Client } from "colyseus";
+import { Room, type Client } from "colyseus";
 import { createInitialRoomState, transition, type RoomState } from "@parallax/game";
 
 interface JoinOptions {
