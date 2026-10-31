@@ -383,6 +383,25 @@ describe("authoritative scenario session engine", () => {
     expect(state.outcome?.kind).toBe("energy-depleted");
   });
 
+  it("restarts a terminal session without retaining prior progress or disconnected players", () => {
+    let state = readySession();
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = transitionGame(state, scenario, { type: "game.tick", at: 481_000 });
+    expect(state.phase).toBe("lost");
+
+    state = transitionGame(state, scenario, { type: "player.leave", playerId: "signals-1" });
+    state = transitionGame(state, scenario, { type: "game.restart", playerId: "systems-1" });
+    expect(state.phase).toBe("lobby");
+    expect(state.energy).toBe(scenario.startingEnergy);
+    expect(state.discoveries).toHaveLength(0);
+    expect(state.solvedMechanismIds).toHaveLength(0);
+    expect(state.processedActionIds).toHaveLength(0);
+    expect(state.deadline).toBeNull();
+    expect(state.outcome).toBeNull();
+    expect(state.players).toHaveLength(1);
+    expect(state.players[0]).toMatchObject({ id: "systems-1", connected: true, ready: false });
+  });
+
   it("times out at the authoritative deadline and rejects post-terminal actions", () => {
     let state = readySession();
     expect(state.deadline).toBe(481_000);
