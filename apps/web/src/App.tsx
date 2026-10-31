@@ -61,6 +61,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [connectionStatus, setConnectionStatus] = useState("standby");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const reconnectAttempted = useRef(false);
 
@@ -69,13 +70,16 @@ export default function App() {
     reconnectAttempted.current = true;
     if (!sessionStorage.getItem("parallax.reconnectionToken")) return;
     setError("Restoring your previous room…");
+    setConnectionStatus("reconnecting");
     void reconnectRoom().then((result) => {
       setRoomCode(result.roomCode);
       setRoom(result.room);
       setError("");
+      setConnectionStatus("connected");
     }).catch(() => {
       clearStoredRoom();
       setError("Your previous room session has expired. Create or join a room.");
+      setConnectionStatus("disconnected");
     });
   }, []);
 
@@ -94,16 +98,19 @@ export default function App() {
     room.onLeave(() => {
       if (sessionStorage.getItem("parallax.reconnectionToken")) {
         setError("Connection interrupted. Reconnecting…");
+        setConnectionStatus("reconnecting");
         void reconnectRoom().then((result) => {
           setRoomCode(result.roomCode);
           setRoom(result.room);
           setError("");
+          setConnectionStatus("connected");
         }).catch(() => {
           clearStoredRoom();
           setRoom(null);
           setRoomSnapshot(null);
           setPrivateView(null);
           setError("Reconnection failed. Join again with the room code.");
+          setConnectionStatus("disconnected");
         });
         return;
       }
@@ -121,6 +128,7 @@ export default function App() {
       return;
     }
     setBusy(true);
+    setConnectionStatus("connecting");
     setError("");
     setNotice("");
     try {
@@ -129,8 +137,10 @@ export default function App() {
         : await joinRoom(roomCode, displayName);
       setRoomCode(result.roomCode);
       setRoom(result.room);
+      setConnectionStatus("connected");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message.replaceAll("_", " ") : "Unable to connect.");
+      setConnectionStatus("disconnected");
     } finally {
       setBusy(false);
     }
@@ -147,6 +157,7 @@ export default function App() {
     setRoom(null);
     setRoomSnapshot(null);
     setPrivateView(null);
+    setConnectionStatus("standby");
     if (current) void current.leave();
   }
 
@@ -166,7 +177,7 @@ export default function App() {
       <header className="topbar">
         <a className="wordmark" href="/" aria-label="PARALLAX home">P<span>/</span>R</a>
         <span className="topbar-label">COOPERATIVE SIGNAL RECOVERY</span>
-        <span className="status"><i /> {room ? "CONNECTED" : "SYSTEM STANDBY"}</span>
+        <span className={`status status-${connectionStatus}`}><i /> {connectionStatus.toUpperCase()}</span>
       </header>
 
       <section className="hero">
