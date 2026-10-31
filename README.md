@@ -58,7 +58,8 @@ bun run build
 - The server issues player session IDs, host status, and role assignments. Client payloads cannot set IDs or roles.
 - The first two required roles are assigned before the room can start.
 - Public Colyseus state contains player presence, readiness, room phase, shared energy, and solved mechanism IDs only.
-- Private discoveries and authorized player views are delivered through per-client messages, never the shared state schema.
+- Role identity, private discoveries, and authorized player views are delivered only through per-client messages, never the shared state schema.
+- The control-room scene shows only perspective-authorized objects with available/locked/used states; the personal evidence journal records source, discovery time, and discoverer, with free revisit.
 - Unexpected disconnects reserve a seat for 20 seconds; the tab-scoped reconnection token supports reload recovery.
 - Current room-code collision protection is process-local. Run one server instance until a shared presence/driver-backed registry is introduced.
 
