@@ -120,6 +120,7 @@ export default function App() {
     const sync = (state: any) => setRoomSnapshot(snapshotFromState(state));
     room.onStateChange(sync);
     room.onMessage("game:view", (view: PrivateView) => setPrivateView(view));
+    room.onMessage("pong", () => setConnectionStatus("connected"));
     room.onMessage("game:error", (payload: { code: string }) => {
       setError(formatError(payload.code));
     });
@@ -159,7 +160,15 @@ export default function App() {
       setPrivateView(null);
       setError("You left the room.");
     });
+    const heartbeat = window.setInterval(() => {
+      try {
+        room.send("ping", {});
+      } catch {
+        setConnectionStatus("reconnecting");
+      }
+    }, 25_000);
     if (room.state) sync(room.state);
+    return () => window.clearInterval(heartbeat);
   }, [room]);
 
   async function connect(action: "create" | "join") {
