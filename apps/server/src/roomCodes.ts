@@ -12,8 +12,8 @@ export interface RoomCodeRecord {
 export class RoomCodeRegistry {
   private readonly records = new Map<string, RoomCodeRecord>();
 
-  reserve(code: string, expiresAt: number): boolean {
-    if (this.records.has(code) || expiresAt <= Date.now()) return false;
+  reserve(code: string, expiresAt: number, now = Date.now()): boolean {
+    if (this.records.has(code) || expiresAt <= now) return false;
     this.records.set(code, { roomId: null, expiresAt });
     return true;
   }
