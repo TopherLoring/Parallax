@@ -208,6 +208,7 @@ export const sharedSignalScenario = {
     { id: "inspect-relay-console", kind: "inspect-object", label: "Inspect relay console", targetObjectId: "relay-console" },
     { id: "inspect-diagnostic-terminal", kind: "inspect-object", label: "Read diagnostic terminal", targetObjectId: "diagnostic-terminal" },
     { id: "inspect-signal-receiver", kind: "inspect-object", label: "Decode intercepted signal", targetObjectId: "signal-receiver" },
+    { id: "inspect-frequency-lock", kind: "inspect-object", label: "Inspect frequency lock", targetObjectId: "frequency-lock" },
     { id: "synchronize-frequency", kind: "attempt-mechanism", label: "Synchronize frequency", targetMechanismId: "frequency-lock" },
     { id: "inspect-network-node", kind: "inspect-object", label: "Inspect hidden network node", targetObjectId: "network-node", prerequisites: [{ kind: "mechanism-solved", mechanismId: "frequency-lock" }] },
     { id: "authenticate-network", kind: "attempt-mechanism", label: "Authenticate network", targetMechanismId: "network-auth" },
