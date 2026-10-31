@@ -99,7 +99,7 @@ export interface RoomState {
   discoveries: Discovery[];
   energy: number;
   deadline: number | null;
-  outcome?: GameOutcome | null;
+  outcome: GameOutcome | null;
 }
 
 export type MechanismResult =
