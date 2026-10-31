@@ -5,7 +5,6 @@ import { clearStoredRoom, createRoom, joinRoom, reconnectRoom } from "./lib/room
 interface PublicPlayer {
   id: string;
   displayName: string;
-  roleName: string;
   connected: boolean;
   ready: boolean;
 }
@@ -44,7 +43,6 @@ function snapshotFromState(state: any): PublicRoomSnapshot {
     players: Array.from(state.players ?? []).map((player: any) => ({
       id: player.id,
       displayName: player.displayName,
-      roleName: player.roleName,
       connected: player.connected,
       ready: player.ready,
     })),
@@ -227,7 +225,7 @@ export default function App() {
               {roomSnapshot?.players.map((player) => (
                 <div className="player-row" key={player.id}>
                   <div className="player-mark">{player.displayName.slice(0, 1).toUpperCase()}</div>
-                  <div className="player-identity"><strong>{player.displayName}{player.id === room?.sessionId ? " (YOU)" : ""}</strong><small>{player.roleName}{player.id === roomSnapshot.hostPlayerId ? " · HOST" : ""}</small></div>
+                  <div className="player-identity"><strong>{player.displayName}{player.id === room?.sessionId ? " (YOU)" : ""}</strong><small>{player.id === room?.sessionId ? privateView?.player.role.name ?? "YOUR ROLE" : "PERSPECTIVE SEALED"}{player.id === roomSnapshot.hostPlayerId ? " · HOST" : ""}</small></div>
                   <span className={`player-state ${player.ready ? "is-ready" : ""}`}>{player.connected ? player.ready ? "READY" : "NOT READY" : "OFFLINE"}</span>
                 </div>
               ))}
