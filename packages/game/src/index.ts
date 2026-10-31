@@ -1,5 +1,8 @@
 import type { Discovery, Player, RoomState } from "./types";
 
+export { discoveryVisibilitySchema, prerequisiteSchema, scenarioSchema } from "./scenario";
+export type { PrerequisiteInput, ScenarioDefinition } from "./scenario";
+
 export type {
   ClueDefinition,
   ClueId,
