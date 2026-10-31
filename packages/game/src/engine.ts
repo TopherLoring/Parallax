@@ -208,6 +208,17 @@ export function transitionGame(
   action: GameSessionAction,
 ): GameSessionState {
   if (state.scenarioId !== scenario.id) return state;
+  if (
+    state.phase === "active" &&
+    state.deadline !== null &&
+    scenario.failureConditions.includes("timeout") &&
+    action.type !== "game.tick" &&
+    "at" in action &&
+    Number.isFinite(action.at) &&
+    action.at >= state.deadline
+  ) {
+    return terminal(state, "lost", { kind: "timeout", completedAt: action.at });
+  }
 
   switch (action.type) {
     case "player.join": {
