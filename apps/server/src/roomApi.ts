@@ -13,6 +13,11 @@ const rateBuckets = new Map<string, { windowStartedAt: number; count: number }>(
 function withinRateLimit(request: IncomingMessage): boolean {
   const key = request.socket.remoteAddress ?? "unknown";
   const now = Date.now();
+  if (rateBuckets.size > 5_000) {
+    for (const [address, bucket] of rateBuckets) {
+      if (now - bucket.windowStartedAt >= RATE_WINDOW_MS) rateBuckets.delete(address);
+    }
+  }
   const current = rateBuckets.get(key);
   if (!current || now - current.windowStartedAt >= RATE_WINDOW_MS) {
     rateBuckets.set(key, { windowStartedAt: now, count: 1 });
