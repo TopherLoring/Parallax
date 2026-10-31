@@ -154,6 +154,7 @@ export function canDiscoverClue(
   const perspective = findPerspective(scenario, player);
   const clue = scenario.clues.find((item) => item.id === clueId);
   if (!perspective || !clue || !perspective.visibleClueIds.includes(clueId)) return false;
+  if (isDiscovered(state, `clue:${clueId}`)) return false;
   if (!isVisibleToPlayer(clue.visibility, player)) return false;
   if (!canInspectObject(state, scenario, player, clue.sourceObjectId)) return false;
   if (!isDiscovered(state, `object:${clue.sourceObjectId}`)) return false;
@@ -258,7 +259,7 @@ export function transitionGame(
       if (!player || !canInspectObject(state, scenario, player, action.objectId)) return state;
       const object = scenario.objects.find((item) => item.id === action.objectId);
       if (!object) return state;
-      return withDiscovery(state, {
+      let next = withDiscovery(state, {
         id: `object:${object.id}`,
         title: object.name,
         content: object.description,
@@ -266,6 +267,26 @@ export function transitionGame(
         discoveredAt: action.at,
         visibility: object.visibility,
       });
+      // Inspection reveals every currently eligible clue attached to this source.
+      // Re-inspection is free and can reveal clues whose prerequisites became true later.
+      let discoveredAnother = true;
+      while (discoveredAnother) {
+        discoveredAnother = false;
+        for (const clue of scenario.clues) {
+          if (clue.sourceObjectId !== object.id || !canDiscoverClue(next, scenario, player, clue.id)) continue;
+          next = withDiscovery(next, {
+            id: `clue:${clue.id}`,
+            clueId: clue.id,
+            title: clue.title,
+            content: clue.content,
+            discoveredBy: player.id,
+            discoveredAt: action.at,
+            visibility: clue.visibility,
+          });
+          discoveredAnother = true;
+        }
+      }
+      return next;
     }
     case "clue.discover": {
       if (state.phase !== "active" || !Number.isFinite(action.at)) return state;
