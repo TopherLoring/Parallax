@@ -235,7 +235,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       const publicPlayer = new PublicPlayerState();
       publicPlayer.id = player.id;
       publicPlayer.displayName = player.displayName;
-      publicPlayer.roleName = activeScenario.perspectives.find((role) => role.id === player.roleId)?.name ?? "Operator";
       publicPlayer.connected = player.connected;
       publicPlayer.ready = player.ready;
       state.players.push(publicPlayer);
