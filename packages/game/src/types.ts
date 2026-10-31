@@ -65,6 +65,7 @@ export interface Discovery {
   content: string;
   discoveredBy: PlayerId;
   discoveredAt: number;
+  sourceObjectId?: GameObjectId;
   visibility?: DiscoveryVisibility;
 }
 
