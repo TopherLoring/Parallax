@@ -174,6 +174,32 @@ describe("authoritative scenario session engine", () => {
     expect(replay.energy).toBe(before - 5);
   });
 
+  it("projects visible object states without revealing another role's scene objects", () => {
+    const state = readySession();
+    const systemsView = getPlayerScenarioView(state, scenario, "systems-1")!;
+    const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+
+    expect(systemsView.objects.find((object) => object.id === "diagnostic-terminal")?.status).toBe("available");
+    expect(systemsView.objects.find((object) => object.id === "restoration-array")?.status).toBe("locked");
+    expect(systemsView.objects.some((object) => object.id === "signal-receiver")).toBe(false);
+
+    expect(signalsView.objects.find((object) => object.id === "network-node")?.status).toBe("locked");
+    expect(signalsView.objects.some((object) => object.id === "diagnostic-terminal")).toBe(false);
+  });
+
+  it("rejects guessed clue IDs from a player without the required perspective", () => {
+    const state = readySession();
+    const forged = transitionGame(state, scenario, {
+      type: "clue.discover",
+      playerId: "signals-1",
+      clueId: "power-phase",
+      at: 2_000,
+    });
+    expect(forged).toBe(state);
+    const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+    expect(JSON.stringify(signalsView)).not.toContain("power-phase");
+  });
+
   it("does not expose answer keys or undiscovered private clues in player views", () => {
     let state = readySession();
     state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
@@ -184,6 +210,13 @@ describe("authoritative scenario session engine", () => {
     expect(JSON.stringify(systemsView)).not.toContain("acceptedAnswers");
     expect(systemsView?.discoveries.some((item) => item.clueId === "power-phase")).toBe(true);
     expect(signalsView?.discoveries.some((item) => item.clueId === "power-phase")).toBe(false);
+    const journalEntry = systemsView?.discoveries.find((item) => item.clueId === "power-phase");
+    expect(journalEntry).toMatchObject({
+      sourceObjectId: "diagnostic-terminal",
+      sourceObjectName: "Systems Diagnostic Terminal",
+      discoveredByName: "Systems",
+      discoveredAt: 2_000,
+    });
   });
 
   it("enforces the six-connected-player cap and rejects duplicate identities or unknown roles", () => {
