@@ -27,6 +27,15 @@ test("expired room codes remain reserved until their room is disposed", () => {
   assert.equal(registry.size, 0);
 });
 
+test("room code expiry can be extended for a host rematch", () => {
+  const registry = new RoomCodeRegistry();
+  registry.reserve("ABC234", Date.now() + 1_000);
+  registry.bind("ABC234", "room-1");
+  const extendedExpiry = Date.now() + 60_000;
+  assert.equal(registry.extend("ABC234", extendedExpiry), true);
+  assert.equal(registry.get("ABC234")?.expiresAt, extendedExpiry);
+});
+
 test("generated codes use the unambiguous alphabet and avoid active codes", () => {
   const registry = new RoomCodeRegistry();
   const first = generateRoomCode(registry, new Set(["AAAAAA"]), 10_000);
