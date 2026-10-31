@@ -22,6 +22,7 @@ import {
 } from "../messages";
 
 export class ParallaxRoom extends Room<ParallaxPublicState> {
+  state = new ParallaxPublicState();
   private domainState: GameSessionState = createGameSession(activeScenario);
   private roomCode = "";
   private expiresAt = 0;
@@ -32,7 +33,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.roomCode = parsed.roomCode;
     this.expiresAt = parsed.expiresAt;
     this.maxClients = 6;
-    this.setState(new ParallaxPublicState());
     await this.setMetadata({
       game: "parallax",
       roomCode: this.roomCode,
