@@ -5,6 +5,16 @@ import { createRoomRequestSchema, joinRoomRequestSchema } from "./messages";
 import { generateRoomCode, normalizeRoomCode, roomCodeRegistry, ROOM_TTL_MS } from "./roomCodes";
 
 const ROOM_TYPE = "parallax";
+
+export interface RoomApiDependencies {
+  matchMaker: Pick<typeof matchMaker, "query" | "createRoom" | "joinById">;
+  registry: typeof roomCodeRegistry;
+}
+
+const defaultDependencies: RoomApiDependencies = {
+  matchMaker,
+  registry: roomCodeRegistry,
+};
 const MAX_BODY_BYTES = 4096;
 const RATE_WINDOW_MS = 60_000;
 const RATE_LIMIT = 30;
@@ -73,6 +83,7 @@ function roomMetadata(room: { metadata?: unknown }) {
 export async function handleRoomApiRequest(
   request: IncomingMessage,
   response: ServerResponse,
+  dependencies: RoomApiDependencies = defaultDependencies,
 ): Promise<boolean> {
   const path = new URL(request.url ?? "/", "http://localhost").pathname;
   if (!path.startsWith("/api/rooms")) return false;
@@ -101,13 +112,13 @@ export async function handleRoomApiRequest(
       const body = createRoomRequestSchema.parse(await readJson(request));
       const now = Date.now();
       const expiresAt = now + ROOM_TTL_MS;
-      const rooms = await matchMaker.query({ name: ROOM_TYPE });
+      const rooms = await dependencies.matchMaker.query({ name: ROOM_TYPE });
       const used = new Set(rooms.map((room) => roomMetadata(room).roomCode).filter((value): value is string => typeof value === "string"));
-      const roomCode = generateRoomCode(roomCodeRegistry, used, expiresAt);
+      const roomCode = generateRoomCode(dependencies.registry, used, expiresAt);
       allocatedCode = roomCode;
-      const room = await matchMaker.createRoom(ROOM_TYPE, { roomCode, expiresAt });
-      roomCodeRegistry.bind(roomCode, room.roomId);
-      const reservation = await matchMaker.joinById(room.roomId, { displayName: body.displayName });
+      const room = await dependencies.matchMaker.createRoom(ROOM_TYPE, { roomCode, expiresAt });
+      dependencies.registry.bind(roomCode, room.roomId);
+      const reservation = await dependencies.matchMaker.joinById(room.roomId, { displayName: body.displayName });
       json(response, 201, { roomCode, reservation });
       return true;
     }
@@ -123,12 +134,12 @@ export async function handleRoomApiRequest(
       }
       const expiresAt = roomMetadata(room).expiresAt;
       if (typeof expiresAt !== "number" || expiresAt <= Date.now()) {
-        roomCodeRegistry.release(roomCode);
+        dependencies.registry.release(roomCode);
         json(response, 410, { error: "room_code_expired" });
         return true;
       }
       try {
-        const reservation = await matchMaker.joinById(room.roomId, { displayName: body.displayName });
+        const reservation = await dependencies.matchMaker.joinById(room.roomId, { displayName: body.displayName });
         json(response, 200, { roomCode, reservation });
       } catch (error) {
         const detail = error instanceof Error ? error.message : "room_unavailable";
