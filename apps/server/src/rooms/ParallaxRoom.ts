@@ -182,6 +182,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   private handleInspect(client: Client, payload: unknown) {
     const parsed = inspectMessageSchema.safeParse(payload);
     if (!parsed.success) return this.sendError(client, "invalid_inspect_message");
+    if (this.expireIfNeeded()) return this.sendError(client, "game_not_active");
     const player = this.domainState.players.find((item) => item.id === client.sessionId && item.connected);
     if (this.domainState.phase !== "active" || !player || !canInspectObject(this.domainState, activeScenario, player, parsed.data.objectId)) {
       return this.sendError(client, "object_unavailable");
@@ -206,6 +207,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     const parsed = attemptMessageSchema.safeParse(payload);
     if (!parsed.success) return this.sendError(client, "invalid_attempt_message");
     const { mechanismId, answer, actionId } = parsed.data;
+    if (this.expireIfNeeded()) return this.sendError(client, "game_not_active");
     if (this.domainState.processedActionIds.includes(actionId)) {
       client.send("game:ack", { actionId, duplicate: true });
       return;
@@ -268,7 +270,23 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.gameTimer = null;
   }
 
+  private expireIfNeeded(): boolean {
+    if (
+      this.domainState.phase !== "active" ||
+      this.domainState.deadline === null ||
+      Date.now() < this.domainState.deadline
+    ) return false;
+    this.domainState = transitionGame(this.domainState, activeScenario, {
+      type: "game.tick",
+      at: Date.now(),
+    });
+    this.stopGameTimer();
+    this.syncState();
+    return true;
+  }
+
   private tickGame() {
+    if (this.expireIfNeeded()) return;
     if (this.domainState.phase !== "active") {
       this.stopGameTimer();
       return;
