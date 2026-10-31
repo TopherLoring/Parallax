@@ -42,7 +42,7 @@ export interface PlayerScenarioView {
   energy: number;
   deadline: number | null;
   solvedMechanismIds: string[];
-  discoveries: Array<Pick<Discovery, "id" | "clueId" | "title" | "content" | "discoveredBy" | "discoveredAt">>;
+  discoveries: Array<Pick<Discovery, "id" | "clueId" | "title" | "content" | "discoveredBy" | "discoveredAt" | "sourceObjectId"> & { sourceObjectName: string; discoveredByName: string }>;
   objects: Array<{ id: string; name: string; description: string; areaId: string }>;
   mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
@@ -276,6 +276,7 @@ export function transitionGame(
         content: object.description,
         discoveredBy: player.id,
         discoveredAt: action.at,
+        sourceObjectId: object.id,
         visibility: object.visibility,
       });
       // Inspection reveals every currently eligible clue attached to this source.
@@ -292,6 +293,7 @@ export function transitionGame(
             content: clue.content,
             discoveredBy: player.id,
             discoveredAt: action.at,
+            sourceObjectId: clue.sourceObjectId,
             visibility: clue.visibility,
           });
           discoveredAnother = true;
@@ -311,6 +313,7 @@ export function transitionGame(
         content: clue.content,
         discoveredBy: player.id,
         discoveredAt: action.at,
+        sourceObjectId: clue.sourceObjectId,
         visibility: clue.visibility,
       });
     }
@@ -402,9 +405,21 @@ export function getPlayerScenarioView(
     energy: state.energy,
     deadline: state.deadline,
     solvedMechanismIds: [...state.solvedMechanismIds],
-    discoveries: discoveries.map(({ id, clueId, title, content, discoveredBy, discoveredAt }) => ({
-      id, clueId, title, content, discoveredBy, discoveredAt,
-    })),
+    discoveries: discoveries.map((discovery) => {
+      const sourceObjectId = discovery.sourceObjectId ??
+        scenario.clues.find((clue) => clue.id === discovery.clueId)?.sourceObjectId ?? "";
+      return {
+        id: discovery.id,
+        clueId: discovery.clueId,
+        title: discovery.title,
+        content: discovery.content,
+        discoveredBy: discovery.discoveredBy,
+        discoveredAt: discovery.discoveredAt,
+        sourceObjectId,
+        sourceObjectName: scenario.objects.find((object) => object.id === sourceObjectId)?.name ?? "Unknown source",
+        discoveredByName: state.players.find((item) => item.id === discovery.discoveredBy)?.displayName ?? "Former operator",
+      };
+    }),
     objects,
     mechanisms,
     actions,
