@@ -25,7 +25,7 @@ interface PrivateView {
   player: { id: string; displayName: string; role: { id: string; name: string; description: string } };
   phase: string;
   energy: number;
-  discoveries: Array<{ id: string; clueId?: string; title: string; content: string; discoveredBy: string }>;
+  discoveries: Array<{ id: string; clueId?: string; title: string; content: string; discoveredBy: string; discoveredAt: number; sourceObjectId: string; sourceObjectName: string; discoveredByName: string }>;
   objects: Array<{ id: string; name: string; description: string; areaId: string }>;
   mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
@@ -246,13 +246,23 @@ export default function App() {
               <div className="private-panel">
                 <div className="panel-heading"><span>YOUR PERSPECTIVE</span><span>{privateView.player.role.name.toUpperCase()}</span></div>
                 <p className="role-description">{privateView.player.role.description}</p>
-                <div className="evidence-heading">PRIVATE EVIDENCE · {privateView.discoveries.length}</div>
-                {privateView.discoveries.map((discovery) => (
-                  <article className="evidence-card" key={discovery.id}>
-                    <strong>{discovery.title}</strong>
-                    <p>{discovery.content}</p>
-                  </article>
-                ))}
+                <div className="evidence-heading">PERSONAL EVIDENCE JOURNAL · {privateView.discoveries.length}</div>
+                {privateView.discoveries.map((discovery) => {
+                  const canRevisit = privateView.actions.some((action) =>
+                    action.kind === "inspect-object" && action.targetId === discovery.sourceObjectId,
+                  );
+                  return (
+                    <article className="evidence-card" key={discovery.id}>
+                      <div className="evidence-card-top">
+                        <strong>{discovery.title}</strong>
+                        <small>{new Date(discovery.discoveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>
+                      </div>
+                      <p>{discovery.content}</p>
+                      <div className="evidence-meta">SOURCE: {discovery.sourceObjectName} · FOUND BY: {discovery.discoveredByName}</div>
+                      {canRevisit && <button className="revisit-button" type="button" onClick={() => room.send("inspect", { objectId: discovery.sourceObjectId })}>REVISIT SOURCE ↗</button>}
+                    </article>
+                  );
+                })}
                 <div className="evidence-heading">AVAILABLE OBJECTS</div>
                 {privateView.objects.map((object) => {
                   const available = privateView.actions.some((action) => action.kind === "inspect-object" && action.targetId === object.id);
