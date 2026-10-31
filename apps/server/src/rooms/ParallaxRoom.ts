@@ -273,6 +273,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   private expireIfNeeded(): boolean {
     if (
       this.domainState.phase !== "active" ||
+      !activeScenario.failureConditions.includes("timeout") ||
       this.domainState.deadline === null ||
       Date.now() < this.domainState.deadline
     ) return false;
