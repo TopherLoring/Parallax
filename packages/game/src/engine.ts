@@ -135,6 +135,7 @@ export function canInspectObject(
     (action) => action.kind === "inspect-object" && action.targetObjectId === objectId,
   );
   return Boolean(
+    state.phase === "active" &&
     perspective &&
     object &&
     object.inspectable &&
