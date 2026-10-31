@@ -5,6 +5,7 @@ import {
   canInspectObject,
   createGameSession,
   getPlayerScenarioView,
+  evaluatePrerequisite,
   transitionGame,
 } from "./engine";
 import { scenarioSchema } from "./scenario";
@@ -92,6 +93,14 @@ describe("authoritative scenario session engine", () => {
     expect(canInspectObject(state, scenario, signals, "diagnostic-terminal")).toBe(false);
   });
 
+  it("evaluates same-player and different-player clue prerequisites", () => {
+    let state = readySession();
+    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase"], 2_000);
+    expect(evaluatePrerequisite(state, { kind: "clue-discovered", clueId: "power-phase", by: "same-player" }, "systems-1")).toBe(true);
+    expect(evaluatePrerequisite(state, { kind: "clue-discovered", clueId: "power-phase", by: "different-player" }, "systems-1")).toBe(false);
+    expect(evaluatePrerequisite(state, { kind: "clue-discovered", clueId: "power-phase", by: "different-player" }, "signals-1")).toBe(true);
+  });
+
   it("keeps evidence inspection free and solves the complete asymmetric chain", () => {
     let state = readySession();
     const initialEnergy = state.energy;
@@ -173,7 +182,7 @@ describe("authoritative scenario session engine", () => {
     };
     state = transitionGame(state, scenario, attempt);
     expect(state.energy).toBe(before - 5);
-    const replay = transitionGame(state, scenario, attempt);
+    const replay = transitionGame(state, scenario, { ...attempt, actionId: " same-action " });
     expect(replay).toBe(state);
     expect(replay.energy).toBe(before - 5);
   });
@@ -216,6 +225,12 @@ describe("authoritative scenario session engine", () => {
       type: "player.join",
       player: { id: "unknown-role", displayName: "Unknown", connected: true, roleId: "admin" },
     })).toBe(state);
+    state = transitionGame(state, scenario, { type: "player.leave", playerId: "player-0" });
+    state = transitionGame(state, scenario, {
+      type: "player.join",
+      player: { id: "replacement", displayName: "Replacement", connected: true, roleId: "systems" },
+    });
+    expect(state.players.filter((player) => player.connected)).toHaveLength(6);
   });
 
   it("does not charge locked or unauthorized attempts and gates hidden objects", () => {
