@@ -405,6 +405,17 @@ describe("authoritative scenario session engine", () => {
   it("times out at the authoritative deadline and rejects post-terminal actions", () => {
     let state = readySession();
     expect(state.deadline).toBe(481_000);
+    const lateAttempt = transitionGame(state, scenario, {
+      type: "mechanism.attempt",
+      playerId: "systems-1",
+      mechanismId: "frequency-lock",
+      answer: "731",
+      actionId: "after-deadline",
+      at: 481_000,
+    });
+    expect(lateAttempt.phase).toBe("lost");
+    expect(lateAttempt.outcome?.kind).toBe("timeout");
+    expect(lateAttempt.processedActionIds).not.toContain("after-deadline");
     state = transitionGame(state, scenario, { type: "game.tick", at: 481_000 });
     expect(state.phase).toBe("lost");
     expect(state.outcome).toEqual({ kind: "timeout", completedAt: 481_000 });
