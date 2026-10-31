@@ -143,6 +143,10 @@ describe("authoritative scenario session engine", () => {
     // The recovery sequence becomes discoverable only after network authentication.
     state = inspect(state, "systems-1", "diagnostic-terminal", 3_300);
     expect(state.discoveries.some((item) => item.clueId === "restoration-sequence")).toBe(true);
+    const systems = state.players.find((player) => player.id === "systems-1")!;
+    const signals = state.players.find((player) => player.id === "signals-1")!;
+    expect(canAttemptMechanism(state, scenario, systems, "relay-restoration")).toBe(true);
+    expect(canAttemptMechanism(state, scenario, signals, "relay-restoration")).toBe(false);
     state = transitionGame(state, scenario, {
       type: "mechanism.attempt",
       playerId: "systems-1",
@@ -151,9 +155,21 @@ describe("authoritative scenario session engine", () => {
       actionId: "attempt-restoration-1",
       at: 3_400,
     });
+    expect(state.phase).toBe("active");
+    expect(state.solvedMechanismIds).toContain("relay-restoration");
+    expect(canAttemptMechanism(state, scenario, signals, "relay-confirmation")).toBe(true);
+    expect(canAttemptMechanism(state, scenario, systems, "relay-confirmation")).toBe(false);
 
+    state = transitionGame(state, scenario, {
+      type: "mechanism.attempt",
+      playerId: "signals-1",
+      mechanismId: "relay-confirmation",
+      answer: "CONFIRM",
+      actionId: "attempt-confirmation-1",
+      at: 3_500,
+    });
     expect(state.phase).toBe("won");
-    expect(state.outcome).toEqual({ kind: "victory", completedAt: 3_400 });
+    expect(state.outcome).toEqual({ kind: "victory", completedAt: 3_500 });
   });
 
   it("charges a failed consequential attempt once and deduplicates normalized retry keys", () => {
