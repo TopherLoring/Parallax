@@ -308,6 +308,7 @@ export function transitionGame(
         state.phase !== "active" ||
         !Number.isFinite(action.at) ||
         !action.actionId.trim() ||
+        !action.answer.trim() ||
         action.actionId.trim().length > 128 ||
         action.answer.length > 200 ||
         state.processedActionIds.includes(action.actionId.trim())
