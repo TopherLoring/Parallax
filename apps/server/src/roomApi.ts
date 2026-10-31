@@ -6,6 +6,22 @@ import { generateRoomCode, normalizeRoomCode, roomCodeRegistry, ROOM_TTL_MS } fr
 
 const ROOM_TYPE = "parallax";
 const MAX_BODY_BYTES = 4096;
+const RATE_WINDOW_MS = 60_000;
+const RATE_LIMIT = 30;
+const rateBuckets = new Map<string, { windowStartedAt: number; count: number }>();
+
+function withinRateLimit(request: IncomingMessage): boolean {
+  const key = request.socket.remoteAddress ?? "unknown";
+  const now = Date.now();
+  const current = rateBuckets.get(key);
+  if (!current || now - current.windowStartedAt >= RATE_WINDOW_MS) {
+    rateBuckets.set(key, { windowStartedAt: now, count: 1 });
+    return true;
+  }
+  if (current.count >= RATE_LIMIT) return false;
+  current.count += 1;
+  return true;
+}
 
 function json(response: ServerResponse, status: number, body: unknown) {
   response.statusCode = status;
@@ -57,6 +73,11 @@ export async function handleRoomApiRequest(
   if (!path.startsWith("/api/rooms")) return false;
   if (!cors(request, response)) {
     json(response, 403, { error: "origin_not_allowed" });
+    return true;
+  }
+  if (request.method !== "OPTIONS" && !withinRateLimit(request)) {
+    response.setHeader("retry-after", "60");
+    json(response, 429, { error: "rate_limited" });
     return true;
   }
   if (request.method === "OPTIONS") {
