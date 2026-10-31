@@ -26,7 +26,7 @@ interface PrivateView {
   phase: string;
   energy: number;
   discoveries: Array<{ id: string; clueId?: string; title: string; content: string; discoveredBy: string; discoveredAt: number; sourceObjectId: string; sourceObjectName: string; discoveredByName: string }>;
-  objects: Array<{ id: string; name: string; description: string; areaId: string }>;
+  objects: Array<{ id: string; name: string; description: string; areaId: string; status: "available" | "locked" | "used"; canInspect: boolean }>;
   mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
   solvedMechanismIds: string[];
@@ -263,16 +263,35 @@ export default function App() {
                     </article>
                   );
                 })}
-                <div className="evidence-heading">AVAILABLE OBJECTS</div>
-                {privateView.objects.map((object) => {
-                  const available = privateView.actions.some((action) => action.kind === "inspect-object" && action.targetId === object.id);
-                  return (
-                    <div className="object-row" key={object.id}>
-                      <div><strong>{object.name}</strong><small>{object.description}</small></div>
-                      {available && <button type="button" onClick={() => room.send("inspect", { objectId: object.id })}>INSPECT</button>}
-                    </div>
-                  );
-                })}
+                <div className="evidence-heading">ENVIRONMENT MAP · AUTHORIZED VIEW</div>
+                <div className="control-room-scene">
+                  {(["control-room", "relay-sublevel"] as const).map((areaId) => {
+                    const areaObjects = privateView.objects.filter((object) => object.areaId === areaId);
+                    if (areaObjects.length === 0) return null;
+                    return (
+                      <section className="scene-area" key={areaId}>
+                        <div className="scene-area-title"><span>{areaId === "control-room" ? "01 / CONTROL ROOM" : "02 / RELAY SUBLEVEL"}</span><small>{areaObjects.length} VISIBLE OBJECTS</small></div>
+                        <div className="scene-nodes">
+                          {areaObjects.map((object) => (
+                            <article className={`scene-node scene-node-${object.status}`} key={object.id}>
+                              <div className="scene-node-top">
+                                <span className="scene-node-glyph">{object.id === "signal-receiver" ? "∿" : object.id === "frequency-lock" ? "◈" : object.id === "network-node" ? "⌘" : object.id === "restoration-array" ? "⌁" : "▣"}</span>
+                                <span className={`scene-state scene-state-${object.status}`}>{object.status.toUpperCase()}</span>
+                              </div>
+                              <strong>{object.name}</strong>
+                              <p>{object.description}</p>
+                              {object.canInspect && (
+                                <button type="button" onClick={() => room.send("inspect", { objectId: object.id })}>
+                                  {object.status === "used" ? "REVISIT" : "INSPECT"} ↗
+                                </button>
+                              )}
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
                 {privateView.mechanisms.length > 0 && (
                   <>
                     <div className="evidence-heading">AVAILABLE MECHANISMS</div>
