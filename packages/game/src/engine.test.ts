@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canAttemptMechanism,
-  canDiscoverClue,
+  canDiscoverClue,\n  canInspectObject,
   createGameSession,
   getPlayerScenarioView,
   transitionGame,
@@ -27,7 +27,7 @@ function readySession() {
   return state;
 }
 
-function inspectAndDiscover(
+function awaitableCanInspect(state: ReturnType<typeof readySession>, player: { id: string; roleId?: string }, objectId: string) {\n  return canInspectObject(state, scenario, player as (typeof state.players)[number], objectId);\n}\n\nfunction inspectAndDiscover(
   state: ReturnType<typeof readySession>,
   playerId: string,
   objectId: string,
@@ -176,7 +176,103 @@ describe("authoritative scenario session engine", () => {
     expect(signalsView?.discoveries.some((item) => item.clueId === "power-phase")).toBe(false);
   });
 
-  it("times out at the authoritative deadline and rejects post-terminal actions", () => {
+
+  it("enforces the six-player cap and rejects duplicate identities or unknown roles", () => {
+    let state = createGameSession(scenario);
+    for (let index = 0; index < 6; index += 1) {
+      state = transitionGame(state, scenario, {
+        type: "player.join",
+        player: {
+          id: `player-${index}`,
+          displayName: `Player ${index}`,
+          connected: true,
+          roleId: index % 2 === 0 ? "systems" : "signals",
+        },
+      });
+    }
+    expect(state.players).toHaveLength(6);
+    const capped = transitionGame(state, scenario, {
+      type: "player.join",
+      player: { id: "seventh", displayName: "Seventh", connected: true, roleId: "systems" },
+    });
+    expect(capped).toBe(state);
+    const duplicate = transitionGame(state, scenario, {
+      type: "player.join",
+      player: { id: "player-0", displayName: "Duplicate", connected: true, roleId: "systems" },
+    });
+    expect(duplicate).toBe(state);
+    const unknownRole = transitionGame(state, scenario, {
+      type: "player.join",
+      player: { id: "unknown-role", displayName: "Unknown", connected: true, roleId: "admin" },
+    });
+    expect(unknownRole).toBe(state);
+  });
+
+  it("does not charge locked or unauthorized attempts and gates hidden objects", () => {
+    let state = readySession();
+    const initialEnergy = state.energy;
+    state = transitionGame(state, scenario, {
+      type: "mechanism.attempt",
+      playerId: "systems-1",
+      mechanismId: "network-auth",
+      answer: "NORTHSTAR",
+      actionId: "locked-network",
+      at: 2_000,
+    });
+    expect(state.energy).toBe(initialEnergy);
+    expect(state.processedActionIds).not.toContain("locked-network");
+    const signals = state.players.find((player) => player.id === "signals-1")!;
+    expect(canDiscoverClue(state, scenario, signals, "power-phase")).toBe(false);
+    expect(
+      transitionGame(state, scenario, {
+        type: "object.inspect",
+        playerId: "signals-1",
+        objectId: "diagnostic-terminal",
+        at: 2_100,
+      }),
+    ).toBe(state);
+  });
+
+  it("unlocks the hidden network node only after the frequency mechanism is solved", () => {
+    let state = readySession();
+    const signals = state.players.find((player) => player.id === "signals-1")!;
+    expect(
+      (awaitableCanInspect(state, signals, "network-node")),
+    ).toBe(false);
+    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase", "pulse-cadence"], 2_000);
+    state = inspectAndDiscover(state, "signals-1", "signal-receiver", ["carrier-offset"], 2_100);
+    state = transitionGame(state, scenario, {
+      type: "mechanism.attempt",
+      playerId: "systems-1",
+      mechanismId: "frequency-lock",
+      answer: "731",
+      actionId: "unlock-network",
+      at: 3_000,
+    });
+    expect(
+      (awaitableCanInspect(state, signals, "network-node")),
+    ).toBe(true);
+  });
+
+  it("loses when repeated distinct failed attempts exhaust shared energy", () => {
+    let state = readySession();
+    state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase", "pulse-cadence"], 2_000);
+    state = inspectAndDiscover(state, "signals-1", "signal-receiver", ["carrier-offset"], 2_100);
+    for (let index = 0; index < 20 && state.phase === "active"; index += 1) {
+      state = transitionGame(state, scenario, {
+        type: "mechanism.attempt",
+        playerId: "systems-1",
+        mechanismId: "frequency-lock",
+        answer: "incorrect",
+        actionId: `failed-${index}`,
+        at: 3_000 + index,
+      });
+    }
+    expect(state.energy).toBe(0);
+    expect(state.phase).toBe("lost");
+    expect(state.outcome?.kind).toBe("energy-depleted");
+  });
+\n  it("times out at the authoritative deadline and rejects post-terminal actions", () => {
     let state = readySession();
     expect(state.deadline).toBe(481_000);
     state = transitionGame(state, scenario, { type: "game.tick", at: 481_000 });
