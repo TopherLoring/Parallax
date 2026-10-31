@@ -49,7 +49,7 @@ Private discoveries are sent with a per-client `game:view` message built by `get
 - A room starts only with at least two connected, ready players and all required roles represented.
 - Started rooms are locked against new participants.
 - Unexpected disconnects reserve the player's seat for 20 seconds. Reconnection preserves the session ID, role, and private discoveries; a permanent leave marks the player disconnected.
-- Room-code expiry disconnects the room and releases its registry entry.
+- Expired lobby codes reject new joins and disconnect unused lobby rooms; games already started continue, and their code remains reserved until room disposal.
 
 ## Domain boundaries
 
