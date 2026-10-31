@@ -37,11 +37,11 @@ Neither role can independently complete the chain. The first lock requires facts
 
 ## Answer key (server only)
 
-| Mechanism | Accepted answers | Failure cost | Max attempts |
+| Mechanism | Accepted answers | Failure cost |
 |---|---|---:|---:|
-| Frequency Lock | `7-3-1`, `731` | 5 | 8 |
-| Network Authentication | `NORTHSTAR` | 8 | 5 |
-| Relay Restoration | `3-7-1-9`, `3719` | 10 | 3 |
+| Frequency Lock | `7-3-1`, `731` | 5 |
+| Network Authentication | `NORTHSTAR` | 8 |
+| Relay Restoration | `3-7-1-9`, `3719` | 10 |
 
 Answers should be normalized (trim, uppercase, remove permitted separators) by the server before comparison. Do not send accepted answer arrays, mechanism prerequisites, hidden clues, or future unlock state to clients.
 
