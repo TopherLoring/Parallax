@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   canAttemptMechanism,
-  canDiscoverClue,\n  canInspectObject,
+  canDiscoverClue,
+  canInspectObject,
   createGameSession,
   getPlayerScenarioView,
   transitionGame,
@@ -27,7 +28,7 @@ function readySession() {
   return state;
 }
 
-function awaitableCanInspect(state: ReturnType<typeof readySession>, player: { id: string; roleId?: string }, objectId: string) {\n  return canInspectObject(state, scenario, player as (typeof state.players)[number], objectId);\n}\n\nfunction inspectAndDiscover(
+function inspectAndDiscover(
   state: ReturnType<typeof readySession>,
   playerId: string,
   objectId: string,
@@ -76,6 +77,7 @@ describe("authoritative scenario session engine", () => {
     expect(canDiscoverClue(state, scenario, systems, "carrier-offset")).toBe(false);
     expect(canDiscoverClue(state, scenario, signals, "power-phase")).toBe(false);
     expect(canAttemptMechanism(state, scenario, systems, "frequency-lock")).toBe(false);
+    expect(canInspectObject(state, scenario, signals, "diagnostic-terminal")).toBe(false);
   });
 
   it("keeps evidence inspection free and solves the complete asymmetric chain", () => {
@@ -176,7 +178,6 @@ describe("authoritative scenario session engine", () => {
     expect(signalsView?.discoveries.some((item) => item.clueId === "power-phase")).toBe(false);
   });
 
-
   it("enforces the six-player cap and rejects duplicate identities or unknown roles", () => {
     let state = createGameSession(scenario);
     for (let index = 0; index < 6; index += 1) {
@@ -191,21 +192,18 @@ describe("authoritative scenario session engine", () => {
       });
     }
     expect(state.players).toHaveLength(6);
-    const capped = transitionGame(state, scenario, {
+    expect(transitionGame(state, scenario, {
       type: "player.join",
       player: { id: "seventh", displayName: "Seventh", connected: true, roleId: "systems" },
-    });
-    expect(capped).toBe(state);
-    const duplicate = transitionGame(state, scenario, {
+    })).toBe(state);
+    expect(transitionGame(state, scenario, {
       type: "player.join",
       player: { id: "player-0", displayName: "Duplicate", connected: true, roleId: "systems" },
-    });
-    expect(duplicate).toBe(state);
-    const unknownRole = transitionGame(state, scenario, {
+    })).toBe(state);
+    expect(transitionGame(state, scenario, {
       type: "player.join",
       player: { id: "unknown-role", displayName: "Unknown", connected: true, roleId: "admin" },
-    });
-    expect(unknownRole).toBe(state);
+    })).toBe(state);
   });
 
   it("does not charge locked or unauthorized attempts and gates hidden objects", () => {
@@ -223,22 +221,18 @@ describe("authoritative scenario session engine", () => {
     expect(state.processedActionIds).not.toContain("locked-network");
     const signals = state.players.find((player) => player.id === "signals-1")!;
     expect(canDiscoverClue(state, scenario, signals, "power-phase")).toBe(false);
-    expect(
-      transitionGame(state, scenario, {
-        type: "object.inspect",
-        playerId: "signals-1",
-        objectId: "diagnostic-terminal",
-        at: 2_100,
-      }),
-    ).toBe(state);
+    expect(transitionGame(state, scenario, {
+      type: "object.inspect",
+      playerId: "signals-1",
+      objectId: "diagnostic-terminal",
+      at: 2_100,
+    })).toBe(state);
   });
 
   it("unlocks the hidden network node only after the frequency mechanism is solved", () => {
     let state = readySession();
     const signals = state.players.find((player) => player.id === "signals-1")!;
-    expect(
-      (canInspectObject(state, scenario, signals, "network-node")),
-    ).toBe(false);
+    expect(canInspectObject(state, scenario, signals, "network-node")).toBe(false);
     state = inspectAndDiscover(state, "systems-1", "diagnostic-terminal", ["power-phase", "pulse-cadence"], 2_000);
     state = inspectAndDiscover(state, "signals-1", "signal-receiver", ["carrier-offset"], 2_100);
     state = transitionGame(state, scenario, {
@@ -249,9 +243,7 @@ describe("authoritative scenario session engine", () => {
       actionId: "unlock-network",
       at: 3_000,
     });
-    expect(
-      (awaitableCanInspect(state, signals, "network-node")),
-    ).toBe(true);
+    expect(canInspectObject(state, scenario, signals, "network-node")).toBe(true);
   });
 
   it("loses when repeated distinct failed attempts exhaust shared energy", () => {
@@ -272,7 +264,8 @@ describe("authoritative scenario session engine", () => {
     expect(state.phase).toBe("lost");
     expect(state.outcome?.kind).toBe("energy-depleted");
   });
-\n  it("times out at the authoritative deadline and rejects post-terminal actions", () => {
+
+  it("times out at the authoritative deadline and rejects post-terminal actions", () => {
     let state = readySession();
     expect(state.deadline).toBe(481_000);
     state = transitionGame(state, scenario, { type: "game.tick", at: 481_000 });
