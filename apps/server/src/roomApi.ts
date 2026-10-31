@@ -7,7 +7,7 @@ import { generateRoomCode, normalizeRoomCode, roomCodeRegistry, ROOM_TTL_MS } fr
 const ROOM_TYPE = "parallax";
 
 export interface RoomApiDependencies {
-  matchMaker: Pick<typeof matchMaker, "createRoom" | "joinById">;
+  matchMaker: Pick<typeof matchMaker, "createRoom" | "joinById" | "remoteRoomCall">;
   registry: typeof roomCodeRegistry;
 }
 
@@ -110,7 +110,17 @@ export async function handleRoomApiRequest(
       allocatedCode = roomCode;
       const room = await dependencies.matchMaker.createRoom(ROOM_TYPE, { roomCode, expiresAt });
       dependencies.registry.bind(roomCode, room.roomId);
-      const reservation = await dependencies.matchMaker.joinById(room.roomId, { displayName: body.displayName });
+      let reservation;
+      try {
+        reservation = await dependencies.matchMaker.joinById(room.roomId, { displayName: body.displayName });
+      } catch (error) {
+        try {
+          await dependencies.matchMaker.remoteRoomCall(room.roomId, "disconnect", []);
+        } catch {
+          // The room's own expiry remains the cleanup fallback.
+        }
+        throw error;
+      }
       json(response, 201, { roomCode, reservation });
       return true;
     }
