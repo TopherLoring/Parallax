@@ -99,6 +99,15 @@ test("two independent clients receive private roles and duplicate attempts charg
     assert.equal(JSON.stringify(signalsView).includes("Systems Operator"), false);
     assert.equal("roleName" in systemsRoom.state.players[0]!, false);
 
+    const forgedReadyError = waitForMessage<any>(
+      signalsRoom,
+      "game:error",
+      (payload) => payload.code === "invalid_ready_message",
+    );
+    signalsRoom.send("ready", { ready: true, playerId: systemsRoom.sessionId, roleId: "systems" });
+    await forgedReadyError;
+    assert.equal(Array.from(systemsRoom.state.players).every((player) => !player.ready), true);
+
     const readyPromise = waitForState(
       systemsRoom,
       (state) => Array.from(state.players).length === 2 && Array.from(state.players).every((player) => player.ready),
@@ -110,6 +119,22 @@ test("two independent clients receive private roles and duplicate attempts charg
     const activePromise = waitForState(systemsRoom, (state) => state.phase === "active");
     systemsRoom.send("start", {});
     await activePromise;
+
+    const nonHostStartError = waitForMessage<any>(
+      signalsRoom,
+      "game:error",
+      (payload) => payload.code === "host_only",
+    );
+    signalsRoom.send("start", {});
+    await nonHostStartError;
+
+    const unauthorizedInspectError = waitForMessage<any>(
+      signalsRoom,
+      "game:error",
+      (payload) => payload.code === "object_unavailable",
+    );
+    signalsRoom.send("inspect", { objectId: "diagnostic-terminal" });
+    await unauthorizedInspectError;
 
     const systemsEvidencePromise = waitForMessage<any>(
       systemsRoom,
