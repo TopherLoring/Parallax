@@ -126,7 +126,7 @@ export async function handleRoomApiRequest(
     if (path === "/api/rooms/join") {
       const body = joinRoomRequestSchema.parse(await readJson(request));
       const roomCode = normalizeRoomCode(body.roomCode);
-      const rooms = await matchMaker.query({ name: ROOM_TYPE });
+      const rooms = await dependencies.matchMaker.query({ name: ROOM_TYPE });
       const room = rooms.find((candidate) => roomMetadata(candidate).roomCode === roomCode);
       if (!room) {
         json(response, 404, { error: "room_code_invalid_or_expired" });
@@ -151,7 +151,7 @@ export async function handleRoomApiRequest(
     json(response, 404, { error: "not_found" });
     return true;
   } catch (error) {
-    if (allocatedCode) roomCodeRegistry.release(allocatedCode);
+    if (allocatedCode) dependencies.registry.release(allocatedCode);
     if (error instanceof ZodError) {
       json(response, 400, { error: "invalid_request", issues: error.issues.map((issue) => ({
         path: issue.path.join("."),
