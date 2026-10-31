@@ -4,7 +4,7 @@ A cooperative, real-time escape-room game built around asymmetric information, e
 
 ## Project status
 
-**M1 domain implementation and M2 multiplayer room flow are implemented on stacked milestone branches.** The game package contains the versioned Shared Signal scenario, deterministic session transitions, private player projections, and progression tests. The M2 branch adds room-code matchmaking, server-issued identity/roles, validated messages, synchronized public state, private room views, lobby/game UI, health reporting, and short-window reconnection. Consolidated local verification and browser/device acceptance testing are still pending.
+**M1–M5 implementation work is in place on one stacked branch per milestone.** The game now includes the versioned Shared Signal scenario, deterministic progression, role-private exploration, a two-player final restoration, authoritative countdown/energy, terminal outcomes, reconnect/rematch, multiplayer integration coverage, rate limits, structured logs, and CI quality gates. M6 adds responsive/accessibility polish and deployment configuration. The consolidated quality gates, live integration execution, and public-device acceptance have not yet been run; do not treat the current branches as release-verified.
 
 ## Stack
 
@@ -15,6 +15,7 @@ A cooperative, real-time escape-room game built around asymmetric information, e
 - Zod for runtime validation
 - Vitest for game-domain tests; Node's built-in test runner for server tests. Browser/device acceptance testing is pending.
 - Bun workspaces for package management and scripts
+- GitHub Actions for typecheck, unit/integration tests, and production builds
 
 ## Repository layout
 
@@ -44,6 +45,7 @@ Optional environment overrides:
 
 - `apps/server/.env`: `PORT`, `WEB_ORIGIN` (or comma-separated `WEB_ORIGINS`)
 - `apps/web/.env`: `VITE_GAME_SERVER_URL` and `VITE_GAME_SERVER_HTTP_URL`
+- Production examples: `apps/server/.env.production.example` and `apps/web/.env.production.example`
 
 ```bash
 bun run typecheck
@@ -71,7 +73,7 @@ bun run build
 3. Progress depends on combining information across players.
 4. The server is authoritative for puzzle state, discovery permissions, validation, resources, and outcomes.
 5. Puzzle content is data-driven and independent of the networking framework.
-6. Every milestone must pass its acceptance tests before the next is considered complete.
+6. Keep exactly one working branch per milestone; stack the next milestone on the previous one. A milestone is not release-ready until its acceptance tests pass.
 
 ## Milestones
 
@@ -83,8 +85,8 @@ bun run build
 6. Mobile/desktop polish and production deployment
 7. Demo and Handshake submission assets
 
-See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the server-only [canonical Shared Signal playthrough](docs/SCENARIO_SHARED_SIGNAL.md).
+See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/VISUAL_SYSTEM.md](docs/VISUAL_SYSTEM.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), and the server-only [canonical Shared Signal playthrough](docs/SCENARIO_SHARED_SIGNAL.md).
 
 ## Security
 
-Never send undiscovered clues, answer keys, hidden prerequisites, or future puzzle state to browser clients. Clients submit intentions; the server validates and returns only authorized state.
+Never send undiscovered clues, answer keys, hidden prerequisites, role identities, or future puzzle state through public synchronized state. Clients submit intentions; the server validates and returns only authorized per-player state. Room messages are rate-limited, WebSocket payloads are capped at 8 KiB, and operational logs use an explicit safe-field allowlist.
