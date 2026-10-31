@@ -48,7 +48,7 @@ export async function reconnectRoom() {
   const roomCode = sessionStorage.getItem(ROOM_CODE_KEY);
   if (!token || !roomCode) throw new Error("No resumable room session");
 
-  const retryDelays = [500, 1_000, 2_000];
+  const retryDelays = [500, 1_000, 2_000, 4_000, 6_000];
   let lastError: unknown;
   for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
     try {
