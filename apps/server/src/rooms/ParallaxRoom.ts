@@ -28,6 +28,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   private expiresAt = 0;
   private hostPlayerId = "";
   private gameTimer: { clear: () => void } | null = null;
+  private lobbyExpiryTimer: { clear: () => void } | null = null;
 
   async onCreate(options: unknown) {
     const parsed = roomCreateOptionsSchema.parse(options);
@@ -41,11 +42,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       phase: "lobby",
     });
 
-    this.clock.setTimeout(() => {
-      if (Date.now() < this.expiresAt || this.domainState.phase !== "lobby") return;
-      this.lock();
-      void this.disconnect();
-    }, Math.max(0, this.expiresAt - Date.now()));
+    this.scheduleLobbyExpiry();
 
     this.onMessage("ping", (client, payload) => {
       if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_ping_message");
@@ -116,6 +113,8 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
 
   onDispose() {
     this.stopGameTimer();
+    this.lobbyExpiryTimer?.clear();
+    this.lobbyExpiryTimer = null;
     roomCodeRegistry.release(this.roomCode);
     this.domainState = createGameSession(activeScenario);
   }
@@ -168,6 +167,9 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.stopGameTimer();
     this.domainState = next;
     this.unlock();
+    this.expiresAt = Date.now() + ROOM_TTL_MS;
+    roomCodeRegistry.extend(this.roomCode, this.expiresAt);
+    this.scheduleLobbyExpiry();
     void this.setMetadata({
       game: "parallax",
       roomCode: this.roomCode,
@@ -244,6 +246,16 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
 
   private sendError(client: Client, code: string) {
     client.send("game:error", { code });
+  }
+
+  private scheduleLobbyExpiry() {
+    this.lobbyExpiryTimer?.clear();
+    this.lobbyExpiryTimer = this.clock.setTimeout(() => {
+      this.lobbyExpiryTimer = null;
+      if (Date.now() < this.expiresAt || this.domainState.phase !== "lobby") return;
+      this.lock();
+      void this.disconnect();
+    }, Math.max(0, this.expiresAt - Date.now()));
   }
 
   private startGameTimer() {
