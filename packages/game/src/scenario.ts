@@ -97,6 +97,7 @@ export const scenarioSchema = z.object({
   durationSeconds: z.number().int().min(60).max(3_600),
   startingEnergy: z.number().int().min(1).max(10_000),
   perspectives: z.array(perspectiveSchema).min(2).max(6),
+  requiredRoleIds: z.array(id).min(2).default([]),
   objects: z.array(objectSchema).min(1),
   clues: z.array(clueSchema),
   mechanisms: z.array(mechanismSchema),
@@ -125,6 +126,9 @@ export const scenarioSchema = z.object({
   checkUnique(scenario.actions, "actions");
 
   const roles = new Set(scenario.perspectives.map((item) => item.id));
+  scenario.requiredRoleIds.forEach((roleId) => {
+    if (!roles.has(roleId)) ctx.addIssue({ code: "custom", path: ["requiredRoleIds"], message: `Unknown required role id: ${roleId}` });
+  });
   const objects = new Set(scenario.objects.map((item) => item.id));
   const clues = new Set(scenario.clues.map((item) => item.id));
   const mechanisms = new Set(scenario.mechanisms.map((item) => item.id));
