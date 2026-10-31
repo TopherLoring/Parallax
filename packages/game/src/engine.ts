@@ -207,7 +207,8 @@ export function transitionGame(
 
   switch (action.type) {
     case "player.join": {
-      if (state.phase !== "lobby" || state.players.length >= 6) return state;
+      if (state.phase !== "lobby" || state.players.filter((player) => player.connected).length >= 6) return state;
+      if (!action.player.connected || !action.player.id.trim() || action.player.id.length > 128) return state;
       if (state.players.some((player) => player.id === action.player.id)) return state;
       if (!scenario.perspectives.some((perspective) => perspective.id === action.player.roleId)) return state;
       const displayName = action.player.displayName.trim().slice(0, 20);
@@ -286,14 +287,16 @@ export function transitionGame(
         state.phase !== "active" ||
         !Number.isFinite(action.at) ||
         !action.actionId.trim() ||
-        state.processedActionIds.includes(action.actionId)
+        action.actionId.trim().length > 128 ||
+        action.answer.length > 200 ||
+        state.processedActionIds.includes(action.actionId.trim())
       ) return state;
       const player = findPlayer(state, action.playerId);
       const mechanism = scenario.mechanisms.find((item) => item.id === action.mechanismId);
       if (!player || !mechanism || !canAttemptMechanism(state, scenario, player, mechanism.id)) return state;
 
       const attempts = (state.mechanismAttempts[mechanism.id] ?? 0) + 1;
-      const processedActionIds = [...state.processedActionIds, action.actionId];
+      const processedActionIds = [...state.processedActionIds, action.actionId.trim()];
       const mechanismAttempts = { ...state.mechanismAttempts, [mechanism.id]: attempts };
       const correct = mechanism.acceptedAnswers.some(
         (accepted) => normalizeAnswer(accepted) === normalizeAnswer(action.answer),
