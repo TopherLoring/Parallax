@@ -25,13 +25,13 @@ Neither role can independently complete the chain. The first lock requires facts
 ## Intended progression
 
 1. Both players join and receive distinct server-assigned roles.
-2. Systems Operator inspects the diagnostic terminal and discovers `power-phase` and `pulse-cadence`.
-3. Signal Analyst inspects the receiver and discovers `carrier-offset` and `relay-polarity`.
+2. Systems Operator inspects the diagnostic terminal. The server records the object inspection and reveals every currently eligible clue from that source: `power-phase` and `pulse-cadence`.
+3. Signal Analyst inspects the receiver and receives `carrier-offset` and `relay-polarity` as private discoveries.
 4. The team combines offset 7, phase 3, cadence 1 and enters **731** (canonical display: `7-3-1`) at the Frequency Lock.
 5. The server validates the answer. On success, it marks `frequency-lock` solved and reveals the Hidden Network Node. On failure, charge 5 energy, subject to the action's idempotency key.
-6. Signal Analyst inspects the receiver's now-available routing echo and discovers `routing-echo` (NORTHSTAR).
+6. Signal Analyst re-inspects the receiver. The previously locked `routing-echo` becomes discoverable and is added to that player's private evidence.
 7. The team authenticates the Hidden Network Node using **NORTHSTAR**. On success, the Restoration Array becomes available. On failure, charge 8 energy.
-8. Systems Operator reads the now-available restoration note and discovers `restoration-sequence` (3-7-1-9).
+8. Systems Operator re-inspects the diagnostic terminal. The now-available `restoration-sequence` is added to that player's private evidence.
 9. Signal Analyst confirms `relay-polarity` (positive). Both facts are required for the final mechanism.
 10. The team enters **3719** (canonical display: `3-7-1-9`) at Relay Restoration. On success, the room transitions to victory. A failed consequential attempt costs 10 energy.
 
