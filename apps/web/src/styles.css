@@ -72,3 +72,8 @@ footer{height:62px;margin-top:auto;border-top:1px solid #ffffff13;border-bottom:
 .mechanism-row input{width:140px;min-width:0;height:36px;background:#080f1b;border:1px solid #ffffff24;color:#edf4ff;padding:0 9px;font:9px 'DM Mono',monospace;letter-spacing:.06em}
 .leave-button{margin-top:18px;border:0;background:transparent;color:#8398ae;font:9px 'DM Mono',monospace;letter-spacing:.12em;padding:10px 0}
 @media(max-width:600px){.lobby-controls{grid-template-columns:1fr}.mechanism-row{grid-template-columns:1fr 1fr}.mechanism-row>div{grid-column:1/-1}.mechanism-row input{width:100%}.room-code-display strong{font-size:24px}.player-state{font-size:7px}}
+
+.evidence-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.evidence-card-top small{font:8px 'DM Mono',monospace;color:#7e94ab;white-space:nowrap}
+.evidence-meta{font:8px 'DM Mono',monospace;letter-spacing:.06em;color:#7189a2;margin-top:10px;line-height:1.6}
+.revisit-button{margin-top:9px;padding:5px 0;border:0;background:transparent;color:#8bd5e8;font:8px 'DM Mono',monospace;letter-spacing:.1em}
