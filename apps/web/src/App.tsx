@@ -71,6 +71,7 @@ export default function App() {
     room.onMessage("game:error", (payload: { code: string }) => {
       setError(payload.code.replaceAll("_", " "));
     });
+    room.send("sync", {});
     room.onMessage("game:attempt-result", (payload: { result: string; energy: number }) => {
       setNotice(payload.result === "solved" ? "Mechanism solved." : payload.result === "incorrect" ? `Incorrect attempt. ${payload.energy} energy remaining.` : "Attempt accepted.");
     });
