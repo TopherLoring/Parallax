@@ -13,7 +13,7 @@
 
 ## Trust boundaries
 
-The browser is untrusted. It sends intentions such as ready, inspect object, or attempt mechanism. It does not decide whether an action is valid, assign a player ID or role, or determine what hidden information exists.
+The browser is untrusted. It sends intentions such as ready, inspect object, attempt mechanism, or request a host-authorized rematch. It does not decide whether an action is valid, assign a player ID or role, or determine what hidden information exists.
 
 The room server:
 1. Validates display-name and room-code requests.
@@ -29,7 +29,7 @@ The room server:
 The synchronized Colyseus schema contains only:
 - room phase and code;
 - host session ID;
-- public player identity, connection and ready status; role names and role IDs remain private to the assigned player projection;
+- public player identity, connection/readiness, shared energy, deadline, and server-calculated remaining seconds; role names and role IDs remain private to the assigned player projection;
 - shared energy, deadline, and solved mechanism IDs.
 
 It never contains:
@@ -45,10 +45,11 @@ Private discoveries and the assigned role are sent with a per-client `game:view`
 
 - Room create/join APIs use `matchMaker.createRoom` and `matchMaker.joinById` server-side.
 - New players receive a server-generated Colyseus session ID and a server-assigned role.
-- The first connected player is host; host authority controls mission start.
+- The first connected player is host; host authority controls mission start and terminal rematch.
 - A room starts only with at least two connected, ready players and all required roles represented.
-- Started rooms are locked against new participants.
-- Unexpected disconnects reserve the player's seat for 20 seconds. Reconnection preserves the session ID, role, and private discoveries; a permanent leave marks the player disconnected.
+- Started rooms are locked against new participants. A server clock ticks the deadline and publishes authoritative remaining seconds; terminal outcomes stop the timer.
+- Unexpected disconnects reserve the player's seat for 20 seconds. Reconnection preserves the session ID, role, private discoveries, deadline, and shared resources; a permanent leave marks the player disconnected.
+- A terminal session can be restarted by the host. The rematch resets game progress, renews the room-code expiry, and returns connected players to an unready lobby.
 - Expired lobby codes reject new joins and disconnect unused lobby rooms; games already started continue, and their code remains reserved until room disposal.
 
 ## Domain boundaries
