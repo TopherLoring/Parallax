@@ -13,7 +13,7 @@ A cooperative, real-time escape-room game built around asymmetric information, e
 - Colyseus 0.16 + WebSockets for authoritative multiplayer rooms
 - A framework-independent game domain package for puzzle rules and discovery
 - Zod for runtime validation
-- Node's built-in test runner for server tests; Vitest for game-domain tests
+- Vitest for game-domain tests; Node's built-in test runner for server tests. Browser/device acceptance testing is pending.
 - Bun workspaces for package management and scripts
 
 ## Repository layout
