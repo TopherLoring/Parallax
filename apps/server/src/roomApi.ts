@@ -101,6 +101,7 @@ export async function handleRoomApiRequest(
   }
 
   let allocatedCode: string | null = null;
+  let roomCleanupFailed = false;
   try {
     if (path === "/api/rooms") {
       const body = createRoomRequestSchema.parse(await readJson(request));
@@ -117,7 +118,8 @@ export async function handleRoomApiRequest(
         try {
           await dependencies.matchMaker.remoteRoomCall(room.roomId, "disconnect", []);
         } catch {
-          // The room's own expiry remains the cleanup fallback.
+          roomCleanupFailed = true;
+          // Keep the code reserved until the room expires and disposes itself.
         }
         throw error;
       }
@@ -133,6 +135,10 @@ export async function handleRoomApiRequest(
         json(response, 404, { error: "room_code_invalid_or_expired" });
         return true;
       }
+      if (record.expiresAt <= Date.now()) {
+        json(response, 410, { error: "room_code_expired" });
+        return true;
+      }
       try {
         const reservation = await dependencies.matchMaker.joinById(record.roomId, { displayName: body.displayName });
         json(response, 200, { roomCode, reservation });
@@ -146,7 +152,7 @@ export async function handleRoomApiRequest(
     json(response, 404, { error: "not_found" });
     return true;
   } catch (error) {
-    if (allocatedCode) dependencies.registry.release(allocatedCode);
+    if (allocatedCode && !roomCleanupFailed) dependencies.registry.release(allocatedCode);
     if (error instanceof ZodError) {
       json(response, 400, { error: "invalid_request", issues: error.issues.map((issue) => ({
         path: issue.path.join("."),
