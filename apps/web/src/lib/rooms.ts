@@ -47,9 +47,21 @@ export async function reconnectRoom() {
   const token = sessionStorage.getItem(TOKEN_KEY);
   const roomCode = sessionStorage.getItem(ROOM_CODE_KEY);
   if (!token || !roomCode) throw new Error("No resumable room session");
-  const room = await client.reconnect(token) as Room;
-  rememberRoom(room, roomCode);
-  return { room, roomCode };
+
+  const retryDelays = [500, 1_000, 2_000];
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+    try {
+      const room = await client.reconnect(token) as Room;
+      rememberRoom(room, roomCode);
+      return { room, roomCode };
+    } catch (error) {
+      lastError = error;
+      const delay = retryDelays[attempt];
+      if (delay !== undefined) await new Promise((resolve) => window.setTimeout(resolve, delay));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Room reconnection failed");
 }
 
 export function clearStoredRoom() {
