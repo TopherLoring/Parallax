@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: parallax-server
+    runtime: docker
+    plan: free
+    region: ohio
+    dockerfilePath: ./apps/server/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health/ready
+    maxShutdownDelaySeconds: 60
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: WEB_ORIGINS
+        sync: false
