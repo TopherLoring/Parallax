@@ -12,9 +12,8 @@ export interface RoomCodeRecord {
 export class RoomCodeRegistry {
   private readonly records = new Map<string, RoomCodeRecord>();
 
-  reserve(code: string, expiresAt: number, now = Date.now()): boolean {
-    this.cleanup(now);
-    if (this.records.has(code) || expiresAt <= now) return false;
+  reserve(code: string, expiresAt: number): boolean {
+    if (this.records.has(code) || expiresAt <= Date.now()) return false;
     this.records.set(code, { roomId: null, expiresAt });
     return true;
   }
@@ -26,28 +25,16 @@ export class RoomCodeRegistry {
     return true;
   }
 
-  get(code: string, now = Date.now()): RoomCodeRecord | null {
-    const record = this.records.get(code);
-    if (!record) return null;
-    if (record.expiresAt <= now) {
-      this.records.delete(code);
-      return null;
-    }
-    return record;
+  get(code: string): RoomCodeRecord | null {
+    return this.records.get(code) ?? null;
   }
 
   release(code: string): void {
     this.records.delete(code);
   }
 
-  cleanup(now = Date.now()): void {
-    for (const [code, record] of this.records) {
-      if (record.expiresAt <= now) this.records.delete(code);
-    }
-  }
-
-  has(code: string, now = Date.now()): boolean {
-    return this.get(code, now) !== null;
+  has(code: string): boolean {
+    return this.records.has(code);
   }
 
   get size(): number {
