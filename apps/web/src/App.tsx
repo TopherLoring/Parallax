@@ -155,8 +155,8 @@ export default function App() {
   const canStart = Boolean(
     isHost &&
     roomSnapshot &&
-    roomSnapshot.players.length >= 2 &&
-    roomSnapshot.players.every((player) => player.connected && player.ready),
+    roomSnapshot.players.filter((player) => player.connected).length >= 2 &&
+    roomSnapshot.players.filter((player) => player.connected).every((player) => player.ready),
   );
 
   return (
@@ -206,7 +206,7 @@ export default function App() {
               <div><small>SHARE THIS ROOM CODE</small><strong>{roomSnapshot?.roomCode ?? roomCode}</strong></div>
               <button type="button" onClick={() => void navigator.clipboard?.writeText(roomSnapshot?.roomCode ?? roomCode)}>COPY</button>
             </div>
-            <div className="players-heading"><span>OPERATORS</span><span>{roomSnapshot?.players.length ?? 0} / 6</span></div>
+            <div className="players-heading"><span>OPERATORS</span><span>{roomSnapshot?.players.filter((player) => player.connected).length ?? 0} / 6</span></div>
             <div className="player-list">
               {roomSnapshot?.players.map((player) => (
                 <div className="player-row" key={player.id}>
