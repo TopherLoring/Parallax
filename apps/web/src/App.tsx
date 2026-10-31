@@ -33,6 +33,25 @@ interface PrivateView {
   outcome: { kind: string; completedAt: number } | null;
 }
 
+const ERROR_COPY: Record<string, string> = {
+  room_code_invalid_or_expired: "That room code is invalid or has expired.",
+  room_code_expired: "That room code has expired. Ask the host to create a new room.",
+  room_unavailable: "That room is full or no longer accepting players.",
+  room_full: "This room already has six operators.",
+  host_only: "Only the host can start or restart the mission.",
+  object_unavailable: "That object is not available in your perspective yet.",
+  mechanism_unavailable: "That mechanism is not available to your role yet.",
+  game_not_active: "The mission is no longer active.",
+  rate_limited: "Too many messages. Wait a moment and try again.",
+  attempt_rate_limited: "Too many mechanism attempts. Wait before trying again.",
+  invalid_request: "The request could not be validated.",
+  internal_error: "The server encountered an error. Try again.",
+};
+
+function formatError(code: string): string {
+  return ERROR_COPY[code] ?? code.replaceAll("_", " ");
+}
+
 function formatTime(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
@@ -102,9 +121,8 @@ export default function App() {
     room.onStateChange(sync);
     room.onMessage("game:view", (view: PrivateView) => setPrivateView(view));
     room.onMessage("game:error", (payload: { code: string }) => {
-      setError(payload.code.replaceAll("_", " "));
+      setError(formatError(payload.code));
     });
-    room.send("sync", {});
     room.onMessage("game:inspect-result", (payload: { result: string; newEvidenceCount: number }) => {
       setNotice(payload.result === "new-evidence"
         ? `${payload.newEvidenceCount} new evidence item(s) added to your journal.`
@@ -113,6 +131,10 @@ export default function App() {
     room.onMessage("game:attempt-result", (payload: { result: string; energy: number }) => {
       setNotice(payload.result === "solved" ? "Mechanism solved." : payload.result === "incorrect" ? `Incorrect attempt. ${payload.energy} energy remaining.` : "Attempt accepted.");
     });
+    room.onMessage("game:ack", () => {
+      setNotice("Duplicate submission ignored. Shared energy was not charged again.");
+    });
+    room.send("sync", {});
     room.onLeave(() => {
       if (sessionStorage.getItem("parallax.reconnectionToken")) {
         setError("Connection interrupted. Reconnecting…");
@@ -157,7 +179,7 @@ export default function App() {
       setRoom(result.room);
       setConnectionStatus("connected");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message.replaceAll("_", " ") : "Unable to connect.");
+      setError(cause instanceof Error ? formatError(cause.message) : "Unable to connect.");
       setConnectionStatus("disconnected");
     } finally {
       setBusy(false);
@@ -167,6 +189,16 @@ export default function App() {
   function submitJoin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void connect("join");
+  }
+
+  async function copyRoomCode() {
+    const code = roomSnapshot?.roomCode ?? roomCode;
+    try {
+      await navigator.clipboard.writeText(code);
+      setNotice("Room code copied. Send it to your team.");
+    } catch {
+      setError("Clipboard access is unavailable. Select the room code and copy it manually.");
+    }
   }
 
   function leaveRoom() {
@@ -179,6 +211,23 @@ export default function App() {
     if (current) void current.leave();
   }
 
+  useEffect(() => {
+    const handleOffline = () => {
+      setConnectionStatus("offline");
+      setError("Network connection lost. Your room will attempt to reconnect.");
+    };
+    const handleOnline = () => {
+      if (room) setConnectionStatus("reconnecting");
+      else setConnectionStatus("standby");
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [room]);
+
   const localPlayer = roomSnapshot?.players.find((player) => player.id === room?.sessionId);
   const isHost = Boolean(roomSnapshot && room && roomSnapshot.hostPlayerId === room.sessionId);
   const canStart = Boolean(
@@ -189,13 +238,13 @@ export default function App() {
   );
 
   return (
-    <main className="shell">
+    <><a className="skip-link" href="#main-content">Skip to game content</a><main id="main-content" className="shell">
       <div className="ambient ambient-a" />
       <div className="ambient ambient-b" />
       <header className="topbar">
         <a className="wordmark" href="/" aria-label="PARALLAX home">P<span>/</span>R</a>
         <span className="topbar-label">COOPERATIVE SIGNAL RECOVERY</span>
-        <span className={`status status-${connectionStatus}`}><i /> {connectionStatus.toUpperCase()}</span>
+        <span className={`status status-${connectionStatus}`} role="status" aria-live="polite"><i /> {connectionStatus.toUpperCase()}</span>
       </header>
 
       <section className="hero">
@@ -227,16 +276,26 @@ export default function App() {
             </form>
             {error && <p className="feedback error" role="alert">{error}</p>}
             <p className="panel-note">NO ACCOUNT. NO DOWNLOAD. JUST YOUR TEAM.</p>
+            <section className="how-to-play" aria-labelledby="how-to-play-title">
+              <div id="how-to-play-title" className="how-to-play-title">HOW TO PLAY · 7 MINUTES</div>
+              <ol>
+                <li><strong>Form a team.</strong> 2–6 operators share one room code.</li>
+                <li><strong>Get different perspectives.</strong> Your private role determines what you can discover.</li>
+                <li><strong>Investigate and communicate.</strong> Inspect the room, then share evidence through your own voice or chat channel.</li>
+                <li><strong>Restore together.</strong> Systems enters the recovery sequence; Signals confirms the final restoration.</li>
+              </ol>
+              <p>No in-game chat is provided. Keep your private evidence in your own journal and tell your teammate what matters.</p>
+            </section>
           </div>
         ) : (
           <div className="entry-panel room-panel">
             <div className="panel-heading"><span>02 / ROOM ESTABLISHED</span><span>{roomSnapshot?.phase.toUpperCase() ?? "CONNECTING"}</span></div>
             <div className="room-code-display">
               <div><small>SHARE THIS ROOM CODE</small><strong>{roomSnapshot?.roomCode ?? roomCode}</strong></div>
-              <button type="button" onClick={() => void navigator.clipboard?.writeText(roomSnapshot?.roomCode ?? roomCode)}>COPY</button>
+              <button type="button" onClick={() => void copyRoomCode()} aria-label="Copy room code">COPY</button>
             </div>
             <div className="players-heading"><span>OPERATORS</span><span>{roomSnapshot?.players.filter((player) => player.connected).length ?? 0} / 6</span></div>
-            <div className="player-list">
+            <div className="player-list" aria-label="Room operators">
               {roomSnapshot?.players.map((player) => (
                 <div className="player-row" key={player.id}>
                   <div className="player-mark">{player.displayName.slice(0, 1).toUpperCase()}</div>
@@ -262,7 +321,7 @@ export default function App() {
             {error && <p className="feedback error" role="alert">{error}</p>}
             {notice && <p className="feedback notice" role="status">{notice}</p>}
             {privateView && (
-              <div className="private-panel">
+              <section className="private-panel" aria-label="Your private game perspective">
                 <div className="panel-heading"><span>YOUR PERSPECTIVE</span><span>{privateView.player.role.name.toUpperCase()}</span></div>
                 <p className="role-description">{privateView.player.role.description}</p>
                 <div className="evidence-heading">PERSONAL EVIDENCE JOURNAL · {privateView.discoveries.length}</div>
@@ -300,7 +359,7 @@ export default function App() {
                               <strong>{object.name}</strong>
                               <p>{object.description}</p>
                               {object.canInspect && (
-                                <button type="button" onClick={() => room.send("inspect", { objectId: object.id })}>
+                                <button type="button" aria-label={`${object.status === "used" ? "Revisit" : "Inspect"} ${object.name}`} onClick={() => room.send("inspect", { objectId: object.id })}>
                                   {object.status === "used" ? "REVISIT" : "INSPECT"} ↗
                                 </button>
                               )}
@@ -324,7 +383,7 @@ export default function App() {
                         });
                       }}>
                         <div><strong>{mechanism.name}</strong><small>{mechanism.description}</small></div>
-                        <input value={answers[mechanism.id] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [mechanism.id]: event.target.value.slice(0, 200) }))} placeholder="ENTER SOLUTION" />
+                        <input aria-label={`Solution for ${mechanism.name}`} value={answers[mechanism.id] ?? ""} onChange={(event) => setAnswers((current) => ({ ...current, [mechanism.id]: event.target.value.slice(0, 200) }))} placeholder="ENTER SOLUTION" />
                         <button type="submit" disabled={!(answers[mechanism.id] ?? "").trim()}>SUBMIT</button>
                       </form>
                     ))}
