@@ -30,7 +30,7 @@ interface PrivateView {
   mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
   solvedMechanismIds: string[];
-  outcome: { kind: string } | null;
+  outcome: { kind: string; completedAt: number } | null;
 }
 
 function formatTime(totalSeconds: number): string {
