@@ -62,7 +62,7 @@ function waitForState(
 test("two independent clients receive private roles and duplicate attempts charge energy once", async () => {
   const httpServer = createServer();
   const gameServer = new Server({
-    transport: new WebSocketTransport({ server: httpServer }),
+    transport: new WebSocketTransport({ server: httpServer, maxPayload: 8 * 1024 }),
   });
   gameServer.define("parallax", ParallaxRoom);
   matchMaker.controller.exposedMethods = ["reconnect"];
