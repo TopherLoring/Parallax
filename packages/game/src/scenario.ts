@@ -68,7 +68,6 @@ const mechanismSchema = z.object({
   prerequisites: z.array(prerequisiteSchema).default([]),
   acceptedAnswers: z.array(z.string().trim().min(1).max(200)).min(1),
   failedAttemptEnergyCost: z.number().int().min(0).max(100),
-  maxAttempts: z.number().int().positive().max(100).optional(),
   unlockObjectIds: z.array(id).default([]),
 }).strict();
 
