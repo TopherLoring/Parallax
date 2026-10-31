@@ -25,6 +25,24 @@ function waitForMessage<T>(
   });
 }
 
+function waitForOneOfMessages(
+  room: TestRoom,
+  types: string[],
+  predicate: (payload: any) => boolean,
+  timeoutMs = 5_000,
+): Promise<{ type: string; payload: any }> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Timed out waiting for ${types.join(" or ")}`)), timeoutMs);
+    for (const type of types) {
+      room.onMessage(type, (payload: any) => {
+        if (!predicate(payload)) return;
+        clearTimeout(timeout);
+        resolve({ type, payload });
+      });
+    }
+  });
+}
+
 function waitForState(
   room: TestRoom,
   predicate: (state: TestRoom["state"]) => boolean,
@@ -111,10 +129,7 @@ test("two independent clients receive private roles and duplicate attempts charg
 
     const messageTypes = ["game:attempt-result", "game:ack"];
     const waitForAttemptResponse = (room: TestRoom) =>
-      Promise.race(messageTypes.map((type) =>
-        waitForMessage<any>(room, type, (payload) => payload.actionId === "same-action-id")
-          .then((payload) => ({ type, payload })),
-      ));
+      waitForOneOfMessages(room, messageTypes, (payload) => payload.actionId === "same-action-id");
     const systemsResponse = waitForAttemptResponse(systemsRoom);
     const signalsResponse = waitForAttemptResponse(signalsRoom);
     const energyBefore = systemsRoom.state.energy;
