@@ -370,7 +370,24 @@ export function getPlayerScenarioView(
   const perspective = findPerspective(scenario, player);
   if (!perspective) return null;
 
-  const discoveries = state.discoveries.filter((item) => isVisibleToPlayer(item.visibility ?? { kind: "shared" }, player));
+  const discoveries = state.discoveries.filter((item) => {
+    if (!isVisibleToPlayer(item.visibility ?? { kind: "shared" }, player)) return false;
+    if (item.clueId) {
+      const clue = scenario.clues.find((candidate) => candidate.id === item.clueId);
+      return Boolean(
+        clue &&
+        perspective.visibleClueIds.includes(clue.id) &&
+        isVisibleToPlayer(clue.visibility, player),
+      );
+    }
+    const sourceObjectId = item.sourceObjectId ?? item.id.replace(/^object:/, "");
+    const sourceObject = scenario.objects.find((candidate) => candidate.id === sourceObjectId);
+    return Boolean(
+      sourceObject &&
+      perspective.visibleObjectIds.includes(sourceObject.id) &&
+      isVisibleToPlayer(sourceObject.visibility, player),
+    );
+  });
   const objects = scenario.objects
     .filter((object) =>
       perspective.visibleObjectIds.includes(object.id) && isVisibleToPlayer(object.visibility, player),
@@ -421,7 +438,14 @@ export function getPlayerScenarioView(
     solvedMechanismIds: [...state.solvedMechanismIds],
     discoveries: discoveries.map((discovery) => {
       const sourceObjectId = discovery.sourceObjectId ??
-        scenario.clues.find((clue) => clue.id === discovery.clueId)?.sourceObjectId ?? "";
+        scenario.clues.find((clue) => clue.id === discovery.clueId)?.sourceObjectId ??
+        discovery.id.replace(/^object:/, "");
+      const sourceObject = scenario.objects.find((object) => object.id === sourceObjectId);
+      const sourceIsVisible = Boolean(
+        sourceObject &&
+        perspective.visibleObjectIds.includes(sourceObject.id) &&
+        isVisibleToPlayer(sourceObject.visibility, player),
+      );
       return {
         id: discovery.id,
         clueId: discovery.clueId,
@@ -429,8 +453,8 @@ export function getPlayerScenarioView(
         content: discovery.content,
         discoveredBy: discovery.discoveredBy,
         discoveredAt: discovery.discoveredAt,
-        sourceObjectId,
-        sourceObjectName: scenario.objects.find((object) => object.id === sourceObjectId)?.name ?? "Unknown source",
+        sourceObjectId: sourceIsVisible ? sourceObjectId : "",
+        sourceObjectName: sourceIsVisible ? sourceObject?.name ?? "Shared evidence" : "Shared evidence",
         discoveredByName: state.players.find((item) => item.id === discovery.discoveredBy)?.displayName ?? "Former operator",
       };
     }),
