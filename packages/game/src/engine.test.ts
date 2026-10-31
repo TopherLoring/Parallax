@@ -126,7 +126,9 @@ describe("authoritative scenario session engine", () => {
     expect(state.solvedMechanismIds).toContain("frequency-lock");
 
     // Re-inspection reveals the previously locked routing clue without a fee.
+    const energyBeforeRevisit = state.energy;
     state = inspect(state, "signals-1", "signal-receiver", 3_100);
+    expect(state.energy).toBe(energyBeforeRevisit);
     expect(state.discoveries.some((item) => item.clueId === "routing-echo")).toBe(true);
     state = transitionGame(state, scenario, {
       type: "mechanism.attempt",
@@ -265,6 +267,21 @@ describe("authoritative scenario session engine", () => {
       player: { id: "replacement", displayName: "Replacement", connected: true, roleId: "systems" },
     });
     expect(state.players.filter((player) => player.connected)).toHaveLength(6);
+  });
+
+  it("preserves only the authorized journal in reconnect snapshots", () => {
+    let state = readySession();
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = transitionGame(state, scenario, { type: "player.leave", playerId: "systems-1" });
+    expect(getPlayerScenarioView(state, scenario, "systems-1")).toBeNull();
+    state = transitionGame(state, scenario, { type: "player.reconnect", playerId: "systems-1" });
+
+    const restored = getPlayerScenarioView(state, scenario, "systems-1")!;
+    const otherPlayer = getPlayerScenarioView(state, scenario, "signals-1")!;
+    expect(restored.discoveries.some((item) => item.clueId === "power-phase")).toBe(true);
+    expect(JSON.stringify(restored)).not.toContain("acceptedAnswers");
+    expect(JSON.stringify(otherPlayer)).not.toContain("power-phase");
+    expect(JSON.stringify(otherPlayer)).not.toContain("The relay's diagnostic bus");
   });
 
   it("does not charge locked or unauthorized attempts and gates hidden objects", () => {
