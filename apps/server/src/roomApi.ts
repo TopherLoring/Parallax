@@ -107,7 +107,7 @@ export async function handleRoomApiRequest(
       const body = createRoomRequestSchema.parse(await readJson(request));
       const now = Date.now();
       const expiresAt = now + ROOM_TTL_MS;
-      const roomCode = generateRoomCode(dependencies.registry, new Set(), expiresAt);
+      const roomCode = generateRoomCode(dependencies.registry, new Set<string>(), expiresAt);
       allocatedCode = roomCode;
       const room = await dependencies.matchMaker.createRoom(ROOM_TYPE, { roomCode, expiresAt });
       dependencies.registry.bind(roomCode, room.roomId);
