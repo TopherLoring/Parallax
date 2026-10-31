@@ -7,7 +7,7 @@ import { generateRoomCode, normalizeRoomCode, roomCodeRegistry, ROOM_TTL_MS } fr
 const ROOM_TYPE = "parallax";
 
 export interface RoomApiDependencies {
-  matchMaker: Pick<typeof matchMaker, "query" | "createRoom" | "joinById">;
+  matchMaker: Pick<typeof matchMaker, "createRoom" | "joinById">;
   registry: typeof roomCodeRegistry;
 }
 
@@ -74,12 +74,6 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-function roomMetadata(room: { metadata?: unknown }) {
-  return room.metadata && typeof room.metadata === "object"
-    ? room.metadata as { roomCode?: unknown; expiresAt?: unknown }
-    : {};
-}
-
 export async function handleRoomApiRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -112,9 +106,7 @@ export async function handleRoomApiRequest(
       const body = createRoomRequestSchema.parse(await readJson(request));
       const now = Date.now();
       const expiresAt = now + ROOM_TTL_MS;
-      const rooms = await dependencies.matchMaker.query({ name: ROOM_TYPE });
-      const used = new Set(rooms.map((room) => roomMetadata(room).roomCode).filter((value): value is string => typeof value === "string"));
-      const roomCode = generateRoomCode(dependencies.registry, used, expiresAt);
+      const roomCode = generateRoomCode(dependencies.registry, new Set(), expiresAt);
       allocatedCode = roomCode;
       const room = await dependencies.matchMaker.createRoom(ROOM_TYPE, { roomCode, expiresAt });
       dependencies.registry.bind(roomCode, room.roomId);
@@ -126,20 +118,13 @@ export async function handleRoomApiRequest(
     if (path === "/api/rooms/join") {
       const body = joinRoomRequestSchema.parse(await readJson(request));
       const roomCode = normalizeRoomCode(body.roomCode);
-      const rooms = await dependencies.matchMaker.query({ name: ROOM_TYPE });
-      const room = rooms.find((candidate) => roomMetadata(candidate).roomCode === roomCode);
-      if (!room) {
+      const record = dependencies.registry.get(roomCode);
+      if (!record?.roomId) {
         json(response, 404, { error: "room_code_invalid_or_expired" });
         return true;
       }
-      const expiresAt = roomMetadata(room).expiresAt;
-      if (typeof expiresAt !== "number" || expiresAt <= Date.now()) {
-        dependencies.registry.release(roomCode);
-        json(response, 410, { error: "room_code_expired" });
-        return true;
-      }
       try {
-        const reservation = await dependencies.matchMaker.joinById(room.roomId, { displayName: body.displayName });
+        const reservation = await dependencies.matchMaker.joinById(record.roomId, { displayName: body.displayName });
         json(response, 200, { roomCode, reservation });
       } catch (error) {
         const detail = error instanceof Error ? error.message : "room_unavailable";
