@@ -33,7 +33,8 @@ export type GameSessionAction =
   | { type: "object.inspect"; playerId: string; objectId: string; at: number }
   | { type: "clue.discover"; playerId: string; clueId: string; at: number }
   | { type: "mechanism.attempt"; playerId: string; mechanismId: string; answer: string; actionId: string; at: number }
-  | { type: "game.tick"; at: number };
+  | { type: "game.tick"; at: number }
+  | { type: "game.restart"; playerId: string };
 
 export interface PlayerScenarioView {
   scenario: { id: string; title: string; description: string; durationSeconds: number };
@@ -207,6 +208,17 @@ export function transitionGame(
   action: GameSessionAction,
 ): GameSessionState {
   if (state.scenarioId !== scenario.id) return state;
+  if (
+    state.phase === "active" &&
+    state.deadline !== null &&
+    scenario.failureConditions.includes("timeout") &&
+    action.type !== "game.tick" &&
+    "at" in action &&
+    Number.isFinite(action.at) &&
+    action.at >= state.deadline
+  ) {
+    return terminal(state, "lost", { kind: "timeout", completedAt: action.at });
+  }
 
   switch (action.type) {
     case "player.join": {
@@ -357,6 +369,16 @@ export function transitionGame(
     case "game.tick":
       if (state.phase !== "active" || !scenario.failureConditions.includes("timeout") || state.deadline === null || !Number.isFinite(action.at) || action.at < state.deadline) return state;
       return terminal(state, "lost", { kind: "timeout", completedAt: action.at });
+    case "game.restart": {
+      if ((state.phase !== "won" && state.phase !== "lost") || !findPlayer(state, action.playerId)) return state;
+      const fresh = createGameSession(scenario);
+      return {
+        ...fresh,
+        players: state.players
+          .filter((player) => player.connected)
+          .map((player) => ({ ...player, ready: false })),
+      };
+    }
   }
 }
 

@@ -143,6 +143,10 @@ describe("authoritative scenario session engine", () => {
     // The recovery sequence becomes discoverable only after network authentication.
     state = inspect(state, "systems-1", "diagnostic-terminal", 3_300);
     expect(state.discoveries.some((item) => item.clueId === "restoration-sequence")).toBe(true);
+    const systems = state.players.find((player) => player.id === "systems-1")!;
+    const signals = state.players.find((player) => player.id === "signals-1")!;
+    expect(canAttemptMechanism(state, scenario, systems, "relay-restoration")).toBe(true);
+    expect(canAttemptMechanism(state, scenario, signals, "relay-restoration")).toBe(false);
     state = transitionGame(state, scenario, {
       type: "mechanism.attempt",
       playerId: "systems-1",
@@ -151,9 +155,21 @@ describe("authoritative scenario session engine", () => {
       actionId: "attempt-restoration-1",
       at: 3_400,
     });
+    expect(state.phase).toBe("active");
+    expect(state.solvedMechanismIds).toContain("relay-restoration");
+    expect(canAttemptMechanism(state, scenario, signals, "relay-confirmation")).toBe(true);
+    expect(canAttemptMechanism(state, scenario, systems, "relay-confirmation")).toBe(false);
 
+    state = transitionGame(state, scenario, {
+      type: "mechanism.attempt",
+      playerId: "signals-1",
+      mechanismId: "relay-confirmation",
+      answer: "CONFIRM",
+      actionId: "attempt-confirmation-1",
+      at: 3_500,
+    });
     expect(state.phase).toBe("won");
-    expect(state.outcome).toEqual({ kind: "victory", completedAt: 3_400 });
+    expect(state.outcome).toEqual({ kind: "victory", completedAt: 3_500 });
   });
 
   it("charges a failed consequential attempt once and deduplicates normalized retry keys", () => {
@@ -367,9 +383,39 @@ describe("authoritative scenario session engine", () => {
     expect(state.outcome?.kind).toBe("energy-depleted");
   });
 
+  it("restarts a terminal session without retaining prior progress or disconnected players", () => {
+    let state = readySession();
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = transitionGame(state, scenario, { type: "game.tick", at: 481_000 });
+    expect(state.phase).toBe("lost");
+
+    state = transitionGame(state, scenario, { type: "player.leave", playerId: "signals-1" });
+    state = transitionGame(state, scenario, { type: "game.restart", playerId: "systems-1" });
+    expect(state.phase).toBe("lobby");
+    expect(state.energy).toBe(scenario.startingEnergy);
+    expect(state.discoveries).toHaveLength(0);
+    expect(state.solvedMechanismIds).toHaveLength(0);
+    expect(state.processedActionIds).toHaveLength(0);
+    expect(state.deadline).toBeNull();
+    expect(state.outcome).toBeNull();
+    expect(state.players).toHaveLength(1);
+    expect(state.players[0]).toMatchObject({ id: "systems-1", connected: true, ready: false });
+  });
+
   it("times out at the authoritative deadline and rejects post-terminal actions", () => {
     let state = readySession();
     expect(state.deadline).toBe(481_000);
+    const lateAttempt = transitionGame(state, scenario, {
+      type: "mechanism.attempt",
+      playerId: "systems-1",
+      mechanismId: "frequency-lock",
+      answer: "731",
+      actionId: "after-deadline",
+      at: 481_000,
+    });
+    expect(lateAttempt.phase).toBe("lost");
+    expect(lateAttempt.outcome?.kind).toBe("timeout");
+    expect(lateAttempt.processedActionIds).not.toContain("after-deadline");
     state = transitionGame(state, scenario, { type: "game.tick", at: 481_000 });
     expect(state.phase).toBe("lost");
     expect(state.outcome).toEqual({ kind: "timeout", completedAt: 481_000 });

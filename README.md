@@ -61,6 +61,7 @@ bun run build
 - Role identity, private discoveries, and authorized player views are delivered only through per-client messages, never the shared state schema.
 - The control-room scene shows only perspective-authorized objects with available/locked/used states; the personal evidence journal records source, discovery time, and discoverer, with free revisit.
 - Unexpected disconnects reserve a seat for 20 seconds; the tab-scoped reconnection token supports reload recovery.
+- The server maintains the countdown and publishes remaining seconds. The final restoration requires the Systems Operator to enter the recovery sequence and the Signal Analyst to confirm it; the host can start a rematch after a terminal result.
 - Current room-code collision protection is process-local. Run one server instance until a shared presence/driver-backed registry is introduced.
 
 ## Design principles

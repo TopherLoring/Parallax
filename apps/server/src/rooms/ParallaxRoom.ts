@@ -10,7 +10,7 @@ import {
 } from "@parallax/game";
 import { activeScenario } from "../scenario";
 import { ParallaxPublicState, PublicPlayerState } from "../publicState";
-import { roomCodeRegistry } from "../roomCodes";
+import { roomCodeRegistry, ROOM_TTL_MS } from "../roomCodes";
 import {
   attemptMessageSchema,
   emptyMessageSchema,
@@ -27,6 +27,8 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   private roomCode = "";
   private expiresAt = 0;
   private hostPlayerId = "";
+  private gameTimer: { clear: () => void } | null = null;
+  private lobbyExpiryTimer: { clear: () => void } | null = null;
 
   async onCreate(options: unknown) {
     const parsed = roomCreateOptionsSchema.parse(options);
@@ -40,11 +42,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       phase: "lobby",
     });
 
-    this.clock.setTimeout(() => {
-      if (Date.now() < this.expiresAt || this.domainState.phase !== "lobby") return;
-      this.lock();
-      void this.disconnect();
-    }, Math.max(0, this.expiresAt - Date.now()));
+    this.scheduleLobbyExpiry();
 
     this.onMessage("ping", (client, payload) => {
       if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_ping_message");
@@ -56,6 +54,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     });
     this.onMessage("ready", (client, payload) => this.handleReady(client, payload));
     this.onMessage("start", (client, payload) => this.handleStart(client, payload));
+    this.onMessage("restart", (client, payload) => this.handleRestart(client, payload));
     this.onMessage("inspect", (client, payload) => this.handleInspect(client, payload));
     this.onMessage("attempt", (client, payload) => this.handleAttempt(client, payload));
     this.syncState();
@@ -113,6 +112,9 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   }
 
   onDispose() {
+    this.stopGameTimer();
+    this.lobbyExpiryTimer?.clear();
+    this.lobbyExpiryTimer = null;
     roomCodeRegistry.release(this.roomCode);
     this.domainState = createGameSession(activeScenario);
   }
@@ -150,12 +152,37 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     if (next === this.domainState) return this.sendError(client, "players_not_ready_or_roles_missing");
     this.domainState = next;
     this.lock();
+    this.startGameTimer();
+    this.syncState();
+  }
+
+  private handleRestart(client: Client, payload: unknown) {
+    if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_restart_message");
+    if (client.sessionId !== this.hostPlayerId) return this.sendError(client, "host_only");
+    const next = transitionGame(this.domainState, activeScenario, {
+      type: "game.restart",
+      playerId: client.sessionId,
+    });
+    if (next === this.domainState) return this.sendError(client, "restart_not_allowed");
+    this.stopGameTimer();
+    this.domainState = next;
+    this.unlock();
+    this.expiresAt = Date.now() + ROOM_TTL_MS;
+    roomCodeRegistry.extend(this.roomCode, this.expiresAt);
+    this.scheduleLobbyExpiry();
+    void this.setMetadata({
+      game: "parallax",
+      roomCode: this.roomCode,
+      expiresAt: this.expiresAt,
+      phase: "lobby",
+    });
     this.syncState();
   }
 
   private handleInspect(client: Client, payload: unknown) {
     const parsed = inspectMessageSchema.safeParse(payload);
     if (!parsed.success) return this.sendError(client, "invalid_inspect_message");
+    if (this.expireIfNeeded()) return this.sendError(client, "game_not_active");
     const player = this.domainState.players.find((item) => item.id === client.sessionId && item.connected);
     if (this.domainState.phase !== "active" || !player || !canInspectObject(this.domainState, activeScenario, player, parsed.data.objectId)) {
       return this.sendError(client, "object_unavailable");
@@ -180,6 +207,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     const parsed = attemptMessageSchema.safeParse(payload);
     if (!parsed.success) return this.sendError(client, "invalid_attempt_message");
     const { mechanismId, answer, actionId } = parsed.data;
+    if (this.expireIfNeeded()) return this.sendError(client, "game_not_active");
     if (this.domainState.processedActionIds.includes(actionId)) {
       client.send("game:ack", { actionId, duplicate: true });
       return;
@@ -201,6 +229,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     });
     if (next === this.domainState) return this.sendError(client, "attempt_rejected");
     this.domainState = next;
+    if (next.phase !== "active") this.stopGameTimer();
     const solved = !solvedBefore && next.solvedMechanismIds.includes(mechanismId);
     client.send("game:attempt-result", {
       actionId,
@@ -221,7 +250,59 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     client.send("game:error", { code });
   }
 
-  private syncState() {
+  private scheduleLobbyExpiry() {
+    this.lobbyExpiryTimer?.clear();
+    this.lobbyExpiryTimer = this.clock.setTimeout(() => {
+      this.lobbyExpiryTimer = null;
+      if (Date.now() < this.expiresAt || this.domainState.phase !== "lobby") return;
+      this.lock();
+      void this.disconnect();
+    }, Math.max(0, this.expiresAt - Date.now()));
+  }
+
+  private startGameTimer() {
+    this.stopGameTimer();
+    this.gameTimer = this.clock.setInterval(() => this.tickGame(), 1_000);
+  }
+
+  private stopGameTimer() {
+    this.gameTimer?.clear();
+    this.gameTimer = null;
+  }
+
+  private expireIfNeeded(): boolean {
+    if (
+      this.domainState.phase !== "active" ||
+      !activeScenario.failureConditions.includes("timeout") ||
+      this.domainState.deadline === null ||
+      Date.now() < this.domainState.deadline
+    ) return false;
+    this.domainState = transitionGame(this.domainState, activeScenario, {
+      type: "game.tick",
+      at: Date.now(),
+    });
+    this.stopGameTimer();
+    this.syncState();
+    return true;
+  }
+
+  private tickGame() {
+    if (this.expireIfNeeded()) return;
+    if (this.domainState.phase !== "active") {
+      this.stopGameTimer();
+      return;
+    }
+    const next = transitionGame(this.domainState, activeScenario, {
+      type: "game.tick",
+      at: Date.now(),
+    });
+    this.domainState = next;
+    const becameTerminal = next.phase !== "active";
+    if (becameTerminal) this.stopGameTimer();
+    this.syncState(becameTerminal);
+  }
+
+  private syncState(sendPrivateViews = true) {
     const state = this.state;
     state.phase = this.domainState.phase;
     state.roomCode = this.roomCode;
@@ -229,6 +310,9 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     state.scenarioTitle = activeScenario.title;
     state.energy = this.domainState.energy;
     state.deadline = this.domainState.deadline ?? 0;
+    state.remainingSeconds = this.domainState.phase === "active" && this.domainState.deadline !== null
+      ? Math.max(0, Math.ceil((this.domainState.deadline - Date.now()) / 1_000))
+      : 0;
 
     state.players.splice(0, state.players.length);
     for (const player of this.domainState.players) {
@@ -246,6 +330,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     }
 
     // Never broadcast scenario definitions or raw domain state.
+    if (!sendPrivateViews) return;
     for (const client of this.clients) {
       this.sendPlayerView(client);
     }

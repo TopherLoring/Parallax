@@ -16,6 +16,7 @@ interface PublicRoomSnapshot {
   scenarioTitle: string;
   energy: number;
   deadline: number;
+  remainingSeconds: number;
   players: PublicPlayer[];
   solvedMechanismIds: string[];
 }
@@ -29,7 +30,13 @@ interface PrivateView {
   mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
   solvedMechanismIds: string[];
-  outcome: { kind: string } | null;
+  outcome: { kind: string; completedAt: number } | null;
+}
+
+function formatTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
 }
 
 function snapshotFromState(state: any): PublicRoomSnapshot {
@@ -40,6 +47,7 @@ function snapshotFromState(state: any): PublicRoomSnapshot {
     scenarioTitle: state.scenarioTitle,
     energy: state.energy,
     deadline: state.deadline,
+    remainingSeconds: state.remainingSeconds,
     players: Array.from(state.players ?? []).map((player: any) => ({
       id: player.id,
       displayName: player.displayName,
@@ -80,6 +88,13 @@ export default function App() {
       setConnectionStatus("disconnected");
     });
   }, []);
+
+  useEffect(() => {
+    if (roomSnapshot?.phase === "lobby") {
+      setAnswers({});
+      setNotice("");
+    }
+  }, [roomSnapshot?.phase]);
 
   useEffect(() => {
     if (!room) return;
@@ -239,8 +254,9 @@ export default function App() {
               </div>
             ) : (
               <div className="active-room-summary">
+                <div><small>TIME REMAINING</small><strong>{formatTime(roomSnapshot?.remainingSeconds ?? 0)}</strong></div>
                 <div><small>SHARED ENERGY</small><strong>{roomSnapshot?.energy ?? 0}</strong></div>
-                <div><small>MECHANISMS SOLVED</small><strong>{roomSnapshot?.solvedMechanismIds.length ?? 0} / 3</strong></div>
+                <div><small>MECHANISMS SOLVED</small><strong>{roomSnapshot?.solvedMechanismIds.length ?? 0} / 4</strong></div>
               </div>
             )}
             {error && <p className="feedback error" role="alert">{error}</p>}
@@ -314,7 +330,25 @@ export default function App() {
                     ))}
                   </>
                 )}
-                {privateView.outcome && <p className="feedback notice">SESSION {privateView.outcome.kind.toUpperCase()}.</p>}
+                {privateView.outcome && (
+                  <section className={`results-panel ${privateView.outcome.kind === "victory" ? "results-victory" : "results-failure"}`}>
+                    <div className="results-kicker">SESSION COMPLETE</div>
+                    <h3>{privateView.outcome.kind === "victory" ? "SIGNAL RESTORED" : "TRANSMISSION LOST"}</h3>
+                    <p>{privateView.outcome.kind === "victory"
+                      ? "Both perspectives contributed to the recovery. The settlement link is back online."
+                      : privateView.outcome.kind === "timeout"
+                        ? "The recovery window closed before the relay could be restored."
+                        : "Shared energy was exhausted before the recovery sequence was completed."}</p>
+                    <div className="results-stats">
+                      <span>MECHANISMS {roomSnapshot?.solvedMechanismIds.length ?? 0} / 4</span>
+                      <span>ENERGY {roomSnapshot?.energy ?? 0}</span>
+                      <span>COMPLETED {new Date(privateView.outcome.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    {isHost
+                      ? <button className="primary-button" type="button" onClick={() => room.send("restart", {})}>START REMATCH <span>↗</span></button>
+                      : <small className="rematch-wait">WAITING FOR HOST TO START A REMATCH</small>}
+                  </section>
+                )}
               </div>
             )}
             <button className="leave-button" type="button" onClick={leaveRoom}>LEAVE ROOM</button>
