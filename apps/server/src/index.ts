@@ -41,6 +41,25 @@ gameServer.onBeforeShutdown(() => {
   health.ready = false;
 });
 
+let shuttingDown = false;
+
+async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  health.ready = false;
+  logEvent("info", "server.shutdown_started");
+  try {
+    await gameServer.gracefullyShutdown(false);
+    logEvent("info", "server.shutdown_complete");
+  } catch (error) {
+    logEvent("error", "server.shutdown_failed", { errorType: error instanceof Error ? error.name : "unknown" });
+    process.exitCode = 1;
+  }
+}
+
+process.once("SIGTERM", () => { void shutdown(); });
+process.once("SIGINT", () => { void shutdown(); });
+
 async function start() {
   try {
     await gameServer.listen(port);
