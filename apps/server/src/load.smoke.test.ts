@@ -14,7 +14,7 @@ function waitForState(room: TestRoom, predicate: (state: TestRoom["state"]) => b
   if (room.state?.players && predicate(room.state)) return Promise.resolve();
   return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Load smoke timed out waiting for state")), timeoutMs);
-    room.onStateChange((state) => {
+    room.onStateChange((state: TestRoom["state"]) => {
       if (!state?.players || !predicate(state)) return;
       clearTimeout(timeout);
       resolve();
