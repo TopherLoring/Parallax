@@ -429,7 +429,7 @@ export function getPlayerScenarioView(
   const mechanisms = scenario.mechanisms
     .filter((mechanism) => canAttemptMechanism(state, scenario, player, mechanism.id))
     .map(({ id, name, description }) => ({ id, name, description }));
-  const actions = state.phase === "active" ? scenario.actions.flatMap((action) => {
+  const actions = state.phase === "active" ? scenario.actions.flatMap<PlayerScenarioView["actions"][number]>((action) => {
     if (action.kind === "inspect-object") {
       const object = scenario.objects.find((item) => item.id === action.targetObjectId);
       if (!object || !canInspectObject(state, scenario, player, object.id)) return [];
@@ -470,7 +470,7 @@ export function getPlayerScenarioView(
       );
       return {
         id: discovery.id,
-        clueId: discovery.clueId,
+        ...(discovery.clueId ? { clueId: discovery.clueId } : {}),
         title: discovery.title,
         content: discovery.content,
         discoveredBy: discovery.discoveredBy,

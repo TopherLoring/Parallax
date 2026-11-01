@@ -106,17 +106,17 @@ test("two independent clients receive private roles and duplicate attempts charg
     );
     signalsRoom.send("ready", { ready: true, playerId: systemsRoom.sessionId, roleId: "systems" });
     await forgedReadyError;
-    assert.equal(Array.from(systemsRoom.state.players).every((player) => !player.ready), true);
+    assert.equal(Array.from(systemsRoom.state.players as Iterable<{ ready: boolean }>).every((player) => !player.ready), true);
 
     const readyPromise = waitForState(
       systemsRoom,
-      (state) => Array.from(state.players).length === 2 && Array.from(state.players).every((player) => player.ready),
+      (state: TestRoom["state"]) => Array.from(state.players as Iterable<{ ready: boolean }>).length === 2 && Array.from(state.players as Iterable<{ ready: boolean }>).every((player) => player.ready),
     );
     systemsRoom.send("ready", { ready: true });
     signalsRoom.send("ready", { ready: true });
     await readyPromise;
 
-    const activePromise = waitForState(systemsRoom, (state) => state.phase === "active");
+    const activePromise = waitForState(systemsRoom, (state: TestRoom["state"]) => state.phase === "active");
     systemsRoom.send("start", {});
     await activePromise;
 

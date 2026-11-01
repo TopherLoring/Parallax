@@ -9,12 +9,13 @@ import { generateRoomCode, ROOM_TTL_MS, roomCodeRegistry } from "./roomCodes";
 
 type TestRoom = Awaited<ReturnType<Client["consumeSeatReservation"]>> & { state: any };
 
-function waitForState(room: TestRoom, predicate: (state: any) => boolean, timeoutMs = 10_000) {
-  if (predicate(room.state)) return Promise.resolve();
+function waitForState(room: TestRoom, predicate: (state: TestRoom["state"]) => boolean, timeoutMs = 10_000) {
+  // Colyseus state is undefined until the first server patch reaches the client.
+  if (room.state?.players && predicate(room.state)) return Promise.resolve();
   return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Load smoke timed out waiting for state")), timeoutMs);
-    room.onStateChange((state) => {
-      if (!predicate(state)) return;
+    room.onStateChange((state: TestRoom["state"]) => {
+      if (!state?.players || !predicate(state)) return;
       clearTimeout(timeout);
       resolve();
     });
@@ -53,7 +54,7 @@ test("five concurrent rooms support ten connected clients through lobby start", 
     }));
 
     const readyPromises = pairs.map(([host]) =>
-      waitForState(host, (state) => Array.from(state.players).length === 2 && Array.from(state.players).every((player) => player.ready)),
+      waitForState(host, (state) => Array.from(state.players as Iterable<{ ready: boolean }>).length === 2 && Array.from(state.players as Iterable<{ ready: boolean }>).every((player) => player.ready)),
     );
     for (const [host, guest] of pairs) {
       host.send("ready", { ready: true });

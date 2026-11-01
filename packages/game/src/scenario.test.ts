@@ -36,7 +36,7 @@ describe("versioned scenario schema", () => {
     expect(result.id).toBe("shared-signal");
     expect(result.perspectives).toHaveLength(2);
     expect(result.mechanisms.map((mechanism) => mechanism.id)).toEqual([
-      "frequency-lock", "network-auth", "relay-restoration",
+      "frequency-lock", "network-auth", "relay-restoration", "relay-confirmation",
     ]);
   });
 
