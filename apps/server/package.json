@@ -6,18 +6,19 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "start": "tsx dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test src/roomCodes.test.ts src/health.test.ts src/messages.test.ts src/publicState.test.ts src/roomApi.test.ts"
   },
   "dependencies": {
     "@colyseus/schema": "^3.0.69",
     "@colyseus/ws-transport": "^0.16.5",
     "@parallax/game": "workspace:*",
     "colyseus": "^0.16.5",
-    "zod": "^4.1.11"
+    "zod": "^4.1.11",
+    "tsx": "^4.20.5"
   },
   "devDependencies": {
-    "@types/node": "^22.18.6",
-    "tsx": "^4.20.5"
+    "@types/node": "^22.18.6"
   }
 }

@@ -4,31 +4,31 @@ A cooperative, real-time escape-room game built around asymmetric information, e
 
 ## Project status
 
-**M1 implementation in progress — versioned scenario schema, the first asymmetric scenario, deterministic session transitions, and player-safe projections are implemented in the game package. Server-room integration and full acceptance verification remain pending.**
+**M1 domain implementation and M2 multiplayer room flow are implemented on stacked milestone branches.** The game package contains the versioned Shared Signal scenario, deterministic session transitions, private player projections, and progression tests. The M2 branch adds room-code matchmaking, server-issued identity/roles, validated messages, synchronized public state, private room views, lobby/game UI, health reporting, and short-window reconnection. Consolidated local verification and browser/device acceptance testing are still pending.
 
 ## Stack
 
 - TypeScript across the application
 - React + Vite for the mobile-first browser client
-- Colyseus + WebSockets for authoritative multiplayer rooms
+- Colyseus 0.16 + WebSockets for authoritative multiplayer rooms
 - A framework-independent game domain package for puzzle rules and discovery
 - Zod for runtime validation
-- Vitest for unit tests and Playwright for browser-level verification
+- Vitest for game-domain tests; Node's built-in test runner for server tests. Browser/device acceptance testing is pending.
 - Bun workspaces for package management and scripts
 
 ## Repository layout
 
 ```text
 apps/
-  server/       Colyseus room server
-  web/          React browser client
+  server/       Colyseus room server, matchmaking API, health endpoints
+  web/          React browser client and live room UI
 packages/
-  game/         Pure game domain, puzzle definitions, and validation
+  game/         Pure game domain, scenario schema, and server-owned scenario data
 ```
 
 ## Requirements
 
-- Bun 1.2+
+- Bun 1.4.0
 - Node.js 20.19+ or 22.12+
 
 ## Development
@@ -38,11 +38,33 @@ bun install
 bun dev
 ```
 
-The web client and room server run as separate workspace processes.
+The web client runs on `http://localhost:5173`; the Colyseus HTTP/WebSocket server runs on `http://localhost:2567`.
+
+Optional environment overrides:
+
+- `apps/server/.env`: `PORT`, `WEB_ORIGIN` (or comma-separated `WEB_ORIGINS`)
+- `apps/web/.env`: `VITE_GAME_SERVER_URL` and `VITE_GAME_SERVER_HTTP_URL`
+
+```bash
+bun run typecheck
+bun run test
+bun run build
+```
+
+## Multiplayer behavior
+
+- Create or join a six-character room code; codes use an unambiguous alphabet and expire after 30 minutes.
+- Rooms support 2–6 connected players.
+- The server issues player session IDs, host status, and role assignments. Client payloads cannot set IDs or roles.
+- The first two required roles are assigned before the room can start.
+- Public Colyseus state contains player presence, readiness, room phase, shared energy, and solved mechanism IDs only.
+- Private discoveries and authorized player views are delivered through per-client messages, never the shared state schema.
+- Unexpected disconnects reserve a seat for 20 seconds; the tab-scoped reconnection token supports reload recovery.
+- Current room-code collision protection is process-local. Run one server instance until a shared presence/driver-backed registry is introduced.
 
 ## Design principles
 
-1. Players discover information by investigating the environment; clues are not simply handed out in timed batches.
+1. Players discover information by investigating the environment; clues are revealed only when their source and prerequisites are available.
 2. Each player receives only the discoveries and interfaces they are authorized to access.
 3. Progress depends on combining information across players.
 4. The server is authoritative for puzzle state, discovery permissions, validation, resources, and outcomes.
