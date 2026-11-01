@@ -126,7 +126,9 @@ describe("authoritative scenario session engine", () => {
     expect(state.solvedMechanismIds).toContain("frequency-lock");
 
     // Re-inspection reveals the previously locked routing clue without a fee.
+    const energyBeforeRevisit = state.energy;
     state = inspect(state, "signals-1", "signal-receiver", 3_100);
+    expect(state.energy).toBe(energyBeforeRevisit);
     expect(state.discoveries.some((item) => item.clueId === "routing-echo")).toBe(true);
     state = transitionGame(state, scenario, {
       type: "mechanism.attempt",
@@ -174,6 +176,48 @@ describe("authoritative scenario session engine", () => {
     expect(replay.energy).toBe(before - 5);
   });
 
+  it("projects visible object states without revealing another role's scene objects", () => {
+    const state = readySession();
+    const systemsView = getPlayerScenarioView(state, scenario, "systems-1")!;
+    const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+
+    expect(systemsView.objects.find((object) => object.id === "diagnostic-terminal")?.status).toBe("available");
+    expect(systemsView.objects.find((object) => object.id === "restoration-array")?.status).toBe("locked");
+    expect(systemsView.objects.some((object) => object.id === "signal-receiver")).toBe(false);
+
+    expect(signalsView.objects.find((object) => object.id === "network-node")?.status).toBe("locked");
+    expect(signalsView.objects.some((object) => object.id === "diagnostic-terminal")).toBe(false);
+  });
+
+  it("shares shared object discoveries while keeping role-specific evidence private", () => {
+    let state = readySession();
+    state = inspect(state, "systems-1", "relay-console", 2_000);
+    const systemsView = getPlayerScenarioView(state, scenario, "systems-1")!;
+    const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+    expect(systemsView.discoveries.some((item) => item.id === "object:relay-console")).toBe(true);
+    expect(signalsView.discoveries.some((item) => item.id === "object:relay-console")).toBe(true);
+
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_100);
+    const updatedSignalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+    expect(updatedSignalsView.discoveries.some((item) => item.clueId === "power-phase")).toBe(false);
+    expect(updatedSignalsView.discoveries.some((item) => item.id === "object:diagnostic-terminal")).toBe(false);
+  });
+
+  it("rejects guessed clue IDs from a player without the required perspective", () => {
+    const state = readySession();
+    const forged = transitionGame(state, scenario, {
+      type: "clue.discover",
+      playerId: "signals-1",
+      clueId: "power-phase",
+      at: 2_000,
+    });
+    expect(forged).toBe(state);
+    const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+    expect(JSON.stringify(signalsView)).not.toContain("power-phase");
+    expect(JSON.stringify(signalsView)).not.toContain("Systems Operator");
+    expect(signalsView.player.role.name).toBe("Signal Analyst");
+  });
+
   it("does not expose answer keys or undiscovered private clues in player views", () => {
     let state = readySession();
     state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
@@ -184,6 +228,13 @@ describe("authoritative scenario session engine", () => {
     expect(JSON.stringify(systemsView)).not.toContain("acceptedAnswers");
     expect(systemsView?.discoveries.some((item) => item.clueId === "power-phase")).toBe(true);
     expect(signalsView?.discoveries.some((item) => item.clueId === "power-phase")).toBe(false);
+    const journalEntry = systemsView?.discoveries.find((item) => item.clueId === "power-phase");
+    expect(journalEntry).toMatchObject({
+      sourceObjectId: "diagnostic-terminal",
+      sourceObjectName: "Systems Diagnostic Terminal",
+      discoveredByName: "Systems",
+      discoveredAt: 2_000,
+    });
   });
 
   it("enforces the six-connected-player cap and rejects duplicate identities or unknown roles", () => {
@@ -218,6 +269,43 @@ describe("authoritative scenario session engine", () => {
       player: { id: "replacement", displayName: "Replacement", connected: true, roleId: "systems" },
     });
     expect(state.players.filter((player) => player.connected)).toHaveLength(6);
+  });
+
+  it("does not leak a shared-visibility object discovery outside the assigned perspective", () => {
+    let state = readySession();
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = inspect(state, "signals-1", "signal-receiver", 2_100);
+    state = transitionGame(state, scenario, {
+      type: "mechanism.attempt",
+      playerId: "systems-1",
+      mechanismId: "frequency-lock",
+      answer: "731",
+      actionId: "unlock-hidden-node",
+      at: 3_000,
+    });
+    state = inspect(state, "signals-1", "network-node", 3_100);
+
+    const signalsView = getPlayerScenarioView(state, scenario, "signals-1")!;
+    const systemsView = getPlayerScenarioView(state, scenario, "systems-1")!;
+    expect(signalsView.discoveries.some((item) => item.id === "object:network-node")).toBe(true);
+    expect(systemsView.discoveries.some((item) => item.id === "object:network-node")).toBe(false);
+    expect(JSON.stringify(systemsView)).not.toContain("Hidden Network Node");
+    expect(JSON.stringify(systemsView)).not.toContain("network-node");
+  });
+
+  it("preserves only the authorized journal in reconnect snapshots", () => {
+    let state = readySession();
+    state = inspect(state, "systems-1", "diagnostic-terminal", 2_000);
+    state = transitionGame(state, scenario, { type: "player.leave", playerId: "systems-1" });
+    expect(getPlayerScenarioView(state, scenario, "systems-1")).toBeNull();
+    state = transitionGame(state, scenario, { type: "player.reconnect", playerId: "systems-1" });
+
+    const restored = getPlayerScenarioView(state, scenario, "systems-1")!;
+    const otherPlayer = getPlayerScenarioView(state, scenario, "signals-1")!;
+    expect(restored.discoveries.some((item) => item.clueId === "power-phase")).toBe(true);
+    expect(JSON.stringify(restored)).not.toContain("acceptedAnswers");
+    expect(JSON.stringify(otherPlayer)).not.toContain("power-phase");
+    expect(JSON.stringify(otherPlayer)).not.toContain("The relay's diagnostic bus");
   });
 
   it("does not charge locked or unauthorized attempts and gates hidden objects", () => {

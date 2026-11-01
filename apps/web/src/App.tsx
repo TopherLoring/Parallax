@@ -5,7 +5,6 @@ import { clearStoredRoom, createRoom, joinRoom, reconnectRoom } from "./lib/room
 interface PublicPlayer {
   id: string;
   displayName: string;
-  roleName: string;
   connected: boolean;
   ready: boolean;
 }
@@ -25,8 +24,8 @@ interface PrivateView {
   player: { id: string; displayName: string; role: { id: string; name: string; description: string } };
   phase: string;
   energy: number;
-  discoveries: Array<{ id: string; clueId?: string; title: string; content: string; discoveredBy: string }>;
-  objects: Array<{ id: string; name: string; description: string; areaId: string }>;
+  discoveries: Array<{ id: string; clueId?: string; title: string; content: string; discoveredBy: string; discoveredAt: number; sourceObjectId: string; sourceObjectName: string; discoveredByName: string }>;
+  objects: Array<{ id: string; name: string; description: string; areaId: string; status: "available" | "locked" | "used"; canInspect: boolean }>;
   mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
   solvedMechanismIds: string[];
@@ -44,7 +43,6 @@ function snapshotFromState(state: any): PublicRoomSnapshot {
     players: Array.from(state.players ?? []).map((player: any) => ({
       id: player.id,
       displayName: player.displayName,
-      roleName: player.roleName,
       connected: player.connected,
       ready: player.ready,
     })),
@@ -92,6 +90,11 @@ export default function App() {
       setError(payload.code.replaceAll("_", " "));
     });
     room.send("sync", {});
+    room.onMessage("game:inspect-result", (payload: { result: string; newEvidenceCount: number }) => {
+      setNotice(payload.result === "new-evidence"
+        ? `${payload.newEvidenceCount} new evidence item(s) added to your journal.`
+        : "No new evidence. You can revisit this source anytime at no energy cost.");
+    });
     room.onMessage("game:attempt-result", (payload: { result: string; energy: number }) => {
       setNotice(payload.result === "solved" ? "Mechanism solved." : payload.result === "incorrect" ? `Incorrect attempt. ${payload.energy} energy remaining.` : "Attempt accepted.");
     });
@@ -222,7 +225,7 @@ export default function App() {
               {roomSnapshot?.players.map((player) => (
                 <div className="player-row" key={player.id}>
                   <div className="player-mark">{player.displayName.slice(0, 1).toUpperCase()}</div>
-                  <div className="player-identity"><strong>{player.displayName}{player.id === room?.sessionId ? " (YOU)" : ""}</strong><small>{player.roleName}{player.id === roomSnapshot.hostPlayerId ? " · HOST" : ""}</small></div>
+                  <div className="player-identity"><strong>{player.displayName}{player.id === room?.sessionId ? " (YOU)" : ""}</strong><small>{player.id === room?.sessionId ? privateView?.player.role.name ?? "YOUR ROLE" : "PERSPECTIVE SEALED"}{player.id === roomSnapshot.hostPlayerId ? " · HOST" : ""}</small></div>
                   <span className={`player-state ${player.ready ? "is-ready" : ""}`}>{player.connected ? player.ready ? "READY" : "NOT READY" : "OFFLINE"}</span>
                 </div>
               ))}
@@ -246,23 +249,52 @@ export default function App() {
               <div className="private-panel">
                 <div className="panel-heading"><span>YOUR PERSPECTIVE</span><span>{privateView.player.role.name.toUpperCase()}</span></div>
                 <p className="role-description">{privateView.player.role.description}</p>
-                <div className="evidence-heading">PRIVATE EVIDENCE · {privateView.discoveries.length}</div>
-                {privateView.discoveries.map((discovery) => (
-                  <article className="evidence-card" key={discovery.id}>
-                    <strong>{discovery.title}</strong>
-                    <p>{discovery.content}</p>
-                  </article>
-                ))}
-                <div className="evidence-heading">AVAILABLE OBJECTS</div>
-                {privateView.objects.map((object) => {
-                  const available = privateView.actions.some((action) => action.kind === "inspect-object" && action.targetId === object.id);
+                <div className="evidence-heading">PERSONAL EVIDENCE JOURNAL · {privateView.discoveries.length}</div>
+                {privateView.discoveries.map((discovery) => {
+                  const canRevisit = privateView.actions.some((action) =>
+                    action.kind === "inspect-object" && action.targetId === discovery.sourceObjectId,
+                  );
                   return (
-                    <div className="object-row" key={object.id}>
-                      <div><strong>{object.name}</strong><small>{object.description}</small></div>
-                      {available && <button type="button" onClick={() => room.send("inspect", { objectId: object.id })}>INSPECT</button>}
-                    </div>
+                    <article className="evidence-card" key={discovery.id}>
+                      <div className="evidence-card-top">
+                        <strong>{discovery.title}</strong>
+                        <small>{new Date(discovery.discoveredAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>
+                      </div>
+                      <p>{discovery.content}</p>
+                      <div className="evidence-meta">SOURCE: {discovery.sourceObjectName} · FOUND BY: {discovery.discoveredByName}</div>
+                      {canRevisit && <button className="revisit-button" type="button" onClick={() => room.send("inspect", { objectId: discovery.sourceObjectId })}>REVISIT SOURCE ↗</button>}
+                    </article>
                   );
                 })}
+                <div className="evidence-heading">ENVIRONMENT MAP · AUTHORIZED VIEW</div>
+                <div className="control-room-scene">
+                  {(["control-room", "relay-sublevel"] as const).map((areaId) => {
+                    const areaObjects = privateView.objects.filter((object) => object.areaId === areaId);
+                    if (areaObjects.length === 0) return null;
+                    return (
+                      <section className="scene-area" key={areaId}>
+                        <div className="scene-area-title"><span>{areaId === "control-room" ? "01 / CONTROL ROOM" : "02 / RELAY SUBLEVEL"}</span><small>{areaObjects.length} VISIBLE OBJECTS</small></div>
+                        <div className="scene-nodes">
+                          {areaObjects.map((object) => (
+                            <article className={`scene-node scene-node-${object.status}`} key={object.id}>
+                              <div className="scene-node-top">
+                                <span className="scene-node-glyph">{object.id === "signal-receiver" ? "∿" : object.id === "frequency-lock" ? "◈" : object.id === "network-node" ? "⌘" : object.id === "restoration-array" ? "⌁" : "▣"}</span>
+                                <span className={`scene-state scene-state-${object.status}`}>{object.status.toUpperCase()}</span>
+                              </div>
+                              <strong>{object.name}</strong>
+                              <p>{object.description}</p>
+                              {object.canInspect && (
+                                <button type="button" onClick={() => room.send("inspect", { objectId: object.id })}>
+                                  {object.status === "used" ? "REVISIT" : "INSPECT"} ↗
+                                </button>
+                              )}
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
                 {privateView.mechanisms.length > 0 && (
                   <>
                     <div className="evidence-heading">AVAILABLE MECHANISMS</div>

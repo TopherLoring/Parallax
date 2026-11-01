@@ -29,7 +29,7 @@ The room server:
 The synchronized Colyseus schema contains only:
 - room phase and code;
 - host session ID;
-- public player identity, role label, connection and ready status;
+- public player identity, connection and ready status; role names and role IDs remain private to the assigned player projection;
 - shared energy, deadline, and solved mechanism IDs.
 
 It never contains:
@@ -39,7 +39,7 @@ It never contains:
 - private object descriptions or future unlock data;
 - the full scenario definition.
 
-Private discoveries are sent with a per-client `game:view` message built by `getPlayerScenarioView`. Never broadcast that projection or put it in a globally synchronized schema.
+Private discoveries and the assigned role are sent with a per-client `game:view` message built by `getPlayerScenarioView`. The projection enforces both discovery visibility and explicit perspective allowlists for clues and source objects. It includes a source-aware, timestamped journal and only objects authorized for that player, with server-derived available/locked/used status. Never broadcast that projection or put it in a globally synchronized schema.
 
 ## Session lifecycle
 
