@@ -9,8 +9,6 @@ import {
   type SessionPlayer,
 } from "@parallax/game";
 import { activeScenario } from "../scenario";
-import { FixedWindowRateLimiter } from "../rateLimit";
-import { logEvent } from "../logger";
 import { ParallaxPublicState, PublicPlayerState } from "../publicState";
 import { roomCodeRegistry, ROOM_TTL_MS } from "../roomCodes";
 import {
@@ -31,8 +29,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   private hostPlayerId = "";
   private gameTimer: { clear: () => void } | null = null;
   private lobbyExpiryTimer: { clear: () => void } | null = null;
-  private readonly messageLimiter = new FixedWindowRateLimiter(60, 10_000);
-  private readonly attemptLimiter = new FixedWindowRateLimiter(8, 60_000);
 
   async onCreate(options: unknown) {
     const parsed = roomCreateOptionsSchema.parse(options);
@@ -47,15 +43,12 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     });
 
     this.scheduleLobbyExpiry();
-    logEvent("info", "room.created", { roomCode: this.roomCode, phase: "lobby" });
 
     this.onMessage("ping", (client, payload) => {
-      if (!this.allowMessage(client)) return;
       if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_ping_message");
       client.send("pong", { at: Date.now() });
     });
     this.onMessage("sync", (client, payload) => {
-      if (!this.allowMessage(client)) return;
       if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_sync_message");
       this.sendPlayerView(client);
     });
@@ -90,7 +83,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     if (next === this.domainState) throw new Error("unable_to_join_room");
     this.domainState = next;
     if (!this.hostPlayerId) this.hostPlayerId = client.sessionId;
-    logEvent("info", "player.joined", { roomCode: this.roomCode, sessionId: client.sessionId, playerCount: next.players.filter((player) => player.connected).length });
     this.syncState();
   }
 
@@ -99,16 +91,12 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       type: "player.leave",
       playerId: client.sessionId,
     });
-    logEvent("info", "player.left", { roomCode: this.roomCode, sessionId: client.sessionId, consented });
     if (this.hostPlayerId === client.sessionId) {
       this.hostPlayerId = this.domainState.players.find((player) => player.connected)?.id ?? "";
     }
     this.syncState();
 
-    if (consented) {
-      this.clearSessionRateLimits(client.sessionId);
-      return;
-    }
+    if (consented) return;
     try {
       await this.allowReconnection(client, 20);
       this.domainState = transitionGame(this.domainState, activeScenario, {
@@ -116,11 +104,9 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
         playerId: client.sessionId,
       });
       if (!this.hostPlayerId) this.hostPlayerId = client.sessionId;
-      logEvent("info", "player.reconnected", { roomCode: this.roomCode, sessionId: client.sessionId });
       this.syncState();
     } catch {
       // The player remains disconnected after the 20-second reservation expires.
-      this.clearSessionRateLimits(client.sessionId);
       this.syncState();
     }
   }
@@ -129,10 +115,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.stopGameTimer();
     this.lobbyExpiryTimer?.clear();
     this.lobbyExpiryTimer = null;
-    this.messageLimiter.clear();
-    this.attemptLimiter.clear();
     roomCodeRegistry.release(this.roomCode);
-    logEvent("info", "room.disposed", { roomCode: this.roomCode });
     this.domainState = createGameSession(activeScenario);
   }
 
@@ -146,7 +129,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   }
 
   private handleReady(client: Client, payload: unknown) {
-    if (!this.allowMessage(client)) return;
     const parsed = readyMessageSchema.safeParse(payload);
     if (!parsed.success) return this.sendError(client, "invalid_ready_message");
     const next = transitionGame(this.domainState, activeScenario, {
@@ -160,7 +142,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   }
 
   private handleStart(client: Client, payload: unknown) {
-    if (!this.allowMessage(client)) return;
     const parsed = startMessageSchema.safeParse(payload ?? {});
     if (!parsed.success) return this.sendError(client, "invalid_start_message");
     if (client.sessionId !== this.hostPlayerId) return this.sendError(client, "host_only");
@@ -172,12 +153,10 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.domainState = next;
     this.lock();
     this.startGameTimer();
-    logEvent("info", "game.started", { roomCode: this.roomCode, playerCount: next.players.filter((player) => player.connected).length });
     this.syncState();
   }
 
   private handleRestart(client: Client, payload: unknown) {
-    if (!this.allowMessage(client)) return;
     if (!emptyMessageSchema.safeParse(payload ?? {}).success) return this.sendError(client, "invalid_restart_message");
     if (client.sessionId !== this.hostPlayerId) return this.sendError(client, "host_only");
     const next = transitionGame(this.domainState, activeScenario, {
@@ -191,7 +170,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.expiresAt = Date.now() + ROOM_TTL_MS;
     roomCodeRegistry.extend(this.roomCode, this.expiresAt);
     this.scheduleLobbyExpiry();
-    logEvent("info", "game.rematch", { roomCode: this.roomCode, playerCount: next.players.length });
     void this.setMetadata({
       game: "parallax",
       roomCode: this.roomCode,
@@ -202,7 +180,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   }
 
   private handleInspect(client: Client, payload: unknown) {
-    if (!this.allowMessage(client)) return;
     const parsed = inspectMessageSchema.safeParse(payload);
     if (!parsed.success) return this.sendError(client, "invalid_inspect_message");
     if (this.expireIfNeeded()) return this.sendError(client, "game_not_active");
@@ -218,7 +195,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       at: Date.now(),
     });
     const newEvidenceCount = this.domainState.discoveries.length - discoveriesBefore;
-    logEvent("info", "object.inspected", { roomCode: this.roomCode, sessionId: client.sessionId, newEvidenceCount });
     client.send("game:inspect-result", {
       objectId: parsed.data.objectId,
       result: newEvidenceCount > 0 ? "new-evidence" : "already-known",
@@ -228,7 +204,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
   }
 
   private handleAttempt(client: Client, payload: unknown) {
-    if (!this.allowMessage(client) || !this.allowAttempt(client)) return;
     const parsed = attemptMessageSchema.safeParse(payload);
     if (!parsed.success) return this.sendError(client, "invalid_attempt_message");
     const { mechanismId, answer, actionId } = parsed.data;
@@ -256,8 +231,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.domainState = next;
     if (next.phase !== "active") this.stopGameTimer();
     const solved = !solvedBefore && next.solvedMechanismIds.includes(mechanismId);
-    logEvent("info", "mechanism.attempted", { roomCode: this.roomCode, sessionId: client.sessionId, energy: next.energy, phase: next.phase });
-    if (next.phase !== "active") logEvent("info", "game.finished", { roomCode: this.roomCode, outcome: next.outcome?.kind, energy: next.energy, solvedMechanismCount: next.solvedMechanismIds.length });
     client.send("game:attempt-result", {
       actionId,
       mechanismId,
@@ -268,30 +241,12 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.syncState();
   }
 
-  private allowMessage(client: Client): boolean {
-    if (this.messageLimiter.allow(client.sessionId)) return true;
-    this.sendError(client, "rate_limited");
-    return false;
-  }
-
-  private allowAttempt(client: Client): boolean {
-    if (this.attemptLimiter.allow(client.sessionId)) return true;
-    this.sendError(client, "attempt_rate_limited");
-    return false;
-  }
-
-  private clearSessionRateLimits(sessionId: string) {
-    this.messageLimiter.forget(sessionId);
-    this.attemptLimiter.forget(sessionId);
-  }
-
   private sendPlayerView(client: Client) {
     const view = getPlayerScenarioView(this.domainState, activeScenario, client.sessionId);
     if (view) client.send("game:view", view);
   }
 
   private sendError(client: Client, code: string) {
-    logEvent("warn", "room.message_rejected", { roomCode: this.roomCode, sessionId: client.sessionId, code });
     client.send("game:error", { code });
   }
 
@@ -327,7 +282,6 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       at: Date.now(),
     });
     this.stopGameTimer();
-    logEvent("info", "game.finished", { roomCode: this.roomCode, outcome: this.domainState.outcome?.kind, energy: this.domainState.energy, solvedMechanismCount: this.domainState.solvedMechanismIds.length });
     this.syncState();
     return true;
   }
