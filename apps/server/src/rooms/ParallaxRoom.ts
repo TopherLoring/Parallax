@@ -257,7 +257,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     if (next.phase !== "active") this.stopGameTimer();
     const solved = !solvedBefore && next.solvedMechanismIds.includes(mechanismId);
     logEvent("info", "mechanism.attempted", { roomCode: this.roomCode, sessionId: client.sessionId, energy: next.energy, phase: next.phase });
-    if (next.phase !== "active") logEvent("info", "game.finished", { roomCode: this.roomCode, outcome: next.outcome?.kind, energy: next.energy, solvedMechanismCount: next.solvedMechanismIds.length });
+    if (next.phase !== "active") logEvent("info", "game.finished", { roomCode: this.roomCode, outcome: next.outcome?.kind ?? "unknown", energy: next.energy, solvedMechanismCount: next.solvedMechanismIds.length });
     client.send("game:attempt-result", {
       actionId,
       mechanismId,
@@ -327,7 +327,7 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
       at: Date.now(),
     });
     this.stopGameTimer();
-    logEvent("info", "game.finished", { roomCode: this.roomCode, outcome: this.domainState.outcome?.kind, energy: this.domainState.energy, solvedMechanismCount: this.domainState.solvedMechanismIds.length });
+    logEvent("info", "game.finished", { roomCode: this.roomCode, outcome: this.domainState.outcome?.kind ?? "unknown", energy: this.domainState.energy, solvedMechanismCount: this.domainState.solvedMechanismIds.length });
     this.syncState();
     return true;
   }
