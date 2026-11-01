@@ -79,6 +79,15 @@ describe("versioned scenario schema", () => {
     expect(scenarioSchema.safeParse(invalid).success).toBe(false);
   });
 
+  it("rejects unknown required roles", () => {
+    expect(scenarioSchema.safeParse({ ...validScenario, requiredRoleIds: ["ghost", "operator"] }).success).toBe(false);
+  });
+
+  it("rejects a single required role and duplicate required roles", () => {
+    expect(scenarioSchema.safeParse({ ...validScenario, requiredRoleIds: ["operator"] }).success).toBe(false);
+    expect(scenarioSchema.safeParse({ ...validScenario, requiredRoleIds: ["operator", "operator"] }).success).toBe(false);
+  });
+
   it("rejects undeclared keys to keep scenario data versioned and explicit", () => {
     expect(scenarioSchema.safeParse({ ...validScenario, surprise: true }).success).toBe(false);
   });

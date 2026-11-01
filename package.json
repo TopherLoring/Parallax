@@ -3,13 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "packageManager": "bun@1.4.0",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "bun run --parallel --filter @parallax/server --filter @parallax/web dev",
     "dev:web": "bun run --filter @parallax/web dev",
     "dev:server": "bun run --filter @parallax/server dev",
     "build": "bun run --filter './packages/*' build && bun run --filter './apps/*' build",
-    "test": "bun run --filter './packages/*' test",
+    "test": "bun run --filter './packages/*' test && bun run --filter @parallax/server test",
     "typecheck": "bun run --filter './packages/*' typecheck && bun run --filter './apps/*' typecheck"
   },
   "devDependencies": {

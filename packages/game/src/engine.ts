@@ -27,12 +27,14 @@ export interface GameSessionState {
 export type GameSessionAction =
   | { type: "player.join"; player: Player }
   | { type: "player.leave"; playerId: string }
+  | { type: "player.reconnect"; playerId: string }
   | { type: "player.ready"; playerId: string; ready: boolean }
   | { type: "game.start"; at: number }
   | { type: "object.inspect"; playerId: string; objectId: string; at: number }
   | { type: "clue.discover"; playerId: string; clueId: string; at: number }
   | { type: "mechanism.attempt"; playerId: string; mechanismId: string; answer: string; actionId: string; at: number }
-  | { type: "game.tick"; at: number };
+  | { type: "game.tick"; at: number }
+  | { type: "game.restart"; playerId: string };
 
 export interface PlayerScenarioView {
   scenario: { id: string; title: string; description: string; durationSeconds: number };
@@ -41,8 +43,8 @@ export interface PlayerScenarioView {
   energy: number;
   deadline: number | null;
   solvedMechanismIds: string[];
-  discoveries: Array<Pick<Discovery, "id" | "clueId" | "title" | "content" | "discoveredBy" | "discoveredAt">>;
-  objects: Array<{ id: string; name: string; description: string; areaId: string }>;
+  discoveries: Array<Pick<Discovery, "id" | "clueId" | "title" | "content" | "discoveredBy" | "discoveredAt" | "sourceObjectId"> & { sourceObjectName: string; discoveredByName: string }>;
+  objects: Array<{ id: string; name: string; description: string; areaId: string; status: "available" | "locked" | "used"; canInspect: boolean }>;
   mechanisms: Array<{ id: string; name: string; description: string }>;
   actions: Array<{ id: string; kind: "inspect-object" | "attempt-mechanism"; label: string; targetId: string }>;
   outcome: GameOutcome | null;
@@ -134,6 +136,7 @@ export function canInspectObject(
     (action) => action.kind === "inspect-object" && action.targetObjectId === objectId,
   );
   return Boolean(
+    state.phase === "active" &&
     perspective &&
     object &&
     object.inspectable &&
@@ -154,6 +157,7 @@ export function canDiscoverClue(
   const perspective = findPerspective(scenario, player);
   const clue = scenario.clues.find((item) => item.id === clueId);
   if (!perspective || !clue || !perspective.visibleClueIds.includes(clueId)) return false;
+  if (isDiscovered(state, `clue:${clueId}`)) return false;
   if (!isVisibleToPlayer(clue.visibility, player)) return false;
   if (!canInspectObject(state, scenario, player, clue.sourceObjectId)) return false;
   if (!isDiscovered(state, `object:${clue.sourceObjectId}`)) return false;
@@ -204,6 +208,17 @@ export function transitionGame(
   action: GameSessionAction,
 ): GameSessionState {
   if (state.scenarioId !== scenario.id) return state;
+  if (
+    state.phase === "active" &&
+    state.deadline !== null &&
+    scenario.failureConditions.includes("timeout") &&
+    action.type !== "game.tick" &&
+    "at" in action &&
+    Number.isFinite(action.at) &&
+    action.at >= state.deadline
+  ) {
+    return terminal(state, "lost", { kind: "timeout", completedAt: action.at });
+  }
 
   switch (action.type) {
     case "player.join": {
@@ -226,6 +241,16 @@ export function transitionGame(
           player.id === action.playerId ? { ...player, connected: false, ready: false } : player,
         ),
       };
+    case "player.reconnect": {
+      const player = state.players.find((item) => item.id === action.playerId);
+      if (!player || player.connected) return state;
+      return {
+        ...state,
+        players: state.players.map((item) =>
+          item.id === action.playerId ? { ...item, connected: true, ready: false } : item,
+        ),
+      };
+    }
     case "player.ready": {
       if (state.phase !== "lobby" || !findPlayer(state, action.playerId)) return state;
       return {
@@ -258,14 +283,36 @@ export function transitionGame(
       if (!player || !canInspectObject(state, scenario, player, action.objectId)) return state;
       const object = scenario.objects.find((item) => item.id === action.objectId);
       if (!object) return state;
-      return withDiscovery(state, {
+      let next = withDiscovery(state, {
         id: `object:${object.id}`,
         title: object.name,
         content: object.description,
         discoveredBy: player.id,
         discoveredAt: action.at,
+        sourceObjectId: object.id,
         visibility: object.visibility,
       });
+      // Inspection reveals every currently eligible clue attached to this source.
+      // Re-inspection is free and can reveal clues whose prerequisites became true later.
+      let discoveredAnother = true;
+      while (discoveredAnother) {
+        discoveredAnother = false;
+        for (const clue of scenario.clues) {
+          if (clue.sourceObjectId !== object.id || !canDiscoverClue(next, scenario, player, clue.id)) continue;
+          next = withDiscovery(next, {
+            id: `clue:${clue.id}`,
+            clueId: clue.id,
+            title: clue.title,
+            content: clue.content,
+            discoveredBy: player.id,
+            discoveredAt: action.at,
+            sourceObjectId: clue.sourceObjectId,
+            visibility: clue.visibility,
+          });
+          discoveredAnother = true;
+        }
+      }
+      return next;
     }
     case "clue.discover": {
       if (state.phase !== "active" || !Number.isFinite(action.at)) return state;
@@ -279,6 +326,7 @@ export function transitionGame(
         content: clue.content,
         discoveredBy: player.id,
         discoveredAt: action.at,
+        sourceObjectId: clue.sourceObjectId,
         visibility: clue.visibility,
       });
     }
@@ -287,6 +335,7 @@ export function transitionGame(
         state.phase !== "active" ||
         !Number.isFinite(action.at) ||
         !action.actionId.trim() ||
+        !action.answer.trim() ||
         action.actionId.trim().length > 128 ||
         action.answer.length > 200 ||
         state.processedActionIds.includes(action.actionId.trim())
@@ -320,6 +369,16 @@ export function transitionGame(
     case "game.tick":
       if (state.phase !== "active" || !scenario.failureConditions.includes("timeout") || state.deadline === null || !Number.isFinite(action.at) || action.at < state.deadline) return state;
       return terminal(state, "lost", { kind: "timeout", completedAt: action.at });
+    case "game.restart": {
+      if ((state.phase !== "won" && state.phase !== "lost") || !findPlayer(state, action.playerId)) return state;
+      const fresh = createGameSession(scenario);
+      return {
+        ...fresh,
+        players: state.players
+          .filter((player) => player.connected)
+          .map((player) => ({ ...player, ready: false })),
+      };
+    }
   }
 }
 
@@ -333,10 +392,40 @@ export function getPlayerScenarioView(
   const perspective = findPerspective(scenario, player);
   if (!perspective) return null;
 
-  const discoveries = state.discoveries.filter((item) => isVisibleToPlayer(item.visibility ?? { kind: "shared" }, player));
+  const discoveries = state.discoveries.filter((item) => {
+    if (!isVisibleToPlayer(item.visibility ?? { kind: "shared" }, player)) return false;
+    if (item.clueId) {
+      const clue = scenario.clues.find((candidate) => candidate.id === item.clueId);
+      return Boolean(
+        clue &&
+        perspective.visibleClueIds.includes(clue.id) &&
+        isVisibleToPlayer(clue.visibility, player),
+      );
+    }
+    const sourceObjectId = item.sourceObjectId ?? item.id.replace(/^object:/, "");
+    const sourceObject = scenario.objects.find((candidate) => candidate.id === sourceObjectId);
+    return Boolean(
+      sourceObject &&
+      perspective.visibleObjectIds.includes(sourceObject.id) &&
+      isVisibleToPlayer(sourceObject.visibility, player),
+    );
+  });
   const objects = scenario.objects
-    .filter((object) => canInspectObject(state, scenario, player, object.id))
-    .map(({ id, name, description, areaId }) => ({ id, name, description, areaId }));
+    .filter((object) =>
+      perspective.visibleObjectIds.includes(object.id) && isVisibleToPlayer(object.visibility, player),
+    )
+    .map((object) => {
+      const canInspect = canInspectObject(state, scenario, player, object.id);
+      const used = isDiscovered(state, `object:${object.id}`);
+      return {
+        id: object.id,
+        name: object.name,
+        description: object.description,
+        areaId: object.areaId,
+        status: used ? "used" as const : canInspect ? "available" as const : "locked" as const,
+        canInspect,
+      };
+    });
   const mechanisms = scenario.mechanisms
     .filter((mechanism) => canAttemptMechanism(state, scenario, player, mechanism.id))
     .map(({ id, name, description }) => ({ id, name, description }));
@@ -369,9 +458,28 @@ export function getPlayerScenarioView(
     energy: state.energy,
     deadline: state.deadline,
     solvedMechanismIds: [...state.solvedMechanismIds],
-    discoveries: discoveries.map(({ id, clueId, title, content, discoveredBy, discoveredAt }) => ({
-      id, clueId, title, content, discoveredBy, discoveredAt,
-    })),
+    discoveries: discoveries.map((discovery) => {
+      const sourceObjectId = discovery.sourceObjectId ??
+        scenario.clues.find((clue) => clue.id === discovery.clueId)?.sourceObjectId ??
+        discovery.id.replace(/^object:/, "");
+      const sourceObject = scenario.objects.find((object) => object.id === sourceObjectId);
+      const sourceIsVisible = Boolean(
+        sourceObject &&
+        perspective.visibleObjectIds.includes(sourceObject.id) &&
+        isVisibleToPlayer(sourceObject.visibility, player),
+      );
+      return {
+        id: discovery.id,
+        clueId: discovery.clueId,
+        title: discovery.title,
+        content: discovery.content,
+        discoveredBy: discovery.discoveredBy,
+        discoveredAt: discovery.discoveredAt,
+        sourceObjectId: sourceIsVisible ? sourceObjectId : "",
+        sourceObjectName: sourceIsVisible ? sourceObject?.name ?? "Shared evidence" : "Shared evidence",
+        discoveredByName: state.players.find((item) => item.id === discovery.discoveredBy)?.displayName ?? "Former operator",
+      };
+    }),
     objects,
     mechanisms,
     actions,

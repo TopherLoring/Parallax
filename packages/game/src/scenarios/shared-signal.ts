@@ -38,7 +38,7 @@ export const sharedSignalScenario = {
         "network-node",
       ],
       visibleClueIds: ["carrier-offset", "routing-echo", "relay-polarity"],
-      usableMechanismIds: ["frequency-lock", "network-auth", "relay-restoration"],
+      usableMechanismIds: ["frequency-lock", "network-auth", "relay-confirmation"],
     },
   ],
   objects: [
@@ -191,16 +191,32 @@ export const sharedSignalScenario = {
       id: "relay-restoration",
       name: "Restore Relay",
       description:
-        "Enter the recovery sequence and confirm positive polarity to restore the settlement link.",
+        "Enter the recovery sequence using your diagnostics and the Signal Analyst's polarity confirmation.",
       prerequisites: [
         { kind: "all", requirements: [
           { kind: "mechanism-solved", mechanismId: "network-auth" },
-          { kind: "clue-discovered", clueId: "restoration-sequence" },
-          { kind: "clue-discovered", clueId: "relay-polarity" },
+          { kind: "clue-discovered", clueId: "restoration-sequence", by: "same-player" },
+          { kind: "clue-discovered", clueId: "relay-polarity", by: "different-player" },
         ] },
       ],
       acceptedAnswers: ["3-7-1-9", "3719"],
       failedAttemptEnergyCost: 10,
+      unlockObjectIds: [],
+    },
+    {
+      id: "relay-confirmation",
+      name: "Confirm Relay Restoration",
+      description:
+        "As Signal Analyst, verify your polarity evidence and confirm the Systems Operator's recovery sequence.",
+      prerequisites: [
+        { kind: "all", requirements: [
+          { kind: "mechanism-solved", mechanismId: "relay-restoration" },
+          { kind: "clue-discovered", clueId: "relay-polarity", by: "same-player" },
+          { kind: "clue-discovered", clueId: "restoration-sequence", by: "different-player" },
+        ] },
+      ],
+      acceptedAnswers: ["CONFIRM", "POSITIVE"],
+      failedAttemptEnergyCost: 3,
       unlockObjectIds: [],
     },
   ],
@@ -213,8 +229,9 @@ export const sharedSignalScenario = {
     { id: "inspect-network-node", kind: "inspect-object", label: "Inspect hidden network node", targetObjectId: "network-node", prerequisites: [{ kind: "mechanism-solved", mechanismId: "frequency-lock" }] },
     { id: "authenticate-network", kind: "attempt-mechanism", label: "Authenticate network", targetMechanismId: "network-auth" },
     { id: "inspect-restoration-array", kind: "inspect-object", label: "Inspect restoration array", targetObjectId: "restoration-array", prerequisites: [{ kind: "mechanism-solved", mechanismId: "network-auth" }] },
-    { id: "restore-relay", kind: "attempt-mechanism", label: "Restore relay", targetMechanismId: "relay-restoration" },
+    { id: "restore-relay", kind: "attempt-mechanism", label: "Enter recovery sequence", targetMechanismId: "relay-restoration" },
+    { id: "confirm-relay", kind: "attempt-mechanism", label: "Confirm relay restoration", targetMechanismId: "relay-confirmation" },
   ],
   failureConditions: ["timeout", "energy-depleted"],
-  winCondition: [{ kind: "mechanism-solved", mechanismId: "relay-restoration" }],
+  winCondition: [{ kind: "mechanism-solved", mechanismId: "relay-confirmation" }],
 } as const;

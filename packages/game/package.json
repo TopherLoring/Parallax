@@ -3,12 +3,19 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server-scenario": "./src/scenarios/shared-signal.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": { "zod": "^4.1.11" },
-  "devDependencies": { "vitest": "^3.2.4" }
+  "dependencies": {
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
 }
