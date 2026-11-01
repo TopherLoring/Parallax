@@ -431,6 +431,6 @@ export default function App() {
       </section>
 
       <footer><span>PARALLAX // THE SHARED SIGNAL</span><span>CONNECTION REQUIRED · TRANSMISSION PENDING</span></footer>
-    </main>
+    </main></>
   );
 }
