@@ -4,7 +4,7 @@ A cooperative, real-time escape-room game built around asymmetric information, e
 
 ## Project status
 
-**Foundation scaffold — gameplay implementation pending.**
+**M1 implementation in progress — versioned scenario schema, the first asymmetric scenario, deterministic session transitions, and player-safe projections are implemented in the game package. Server-room integration and full acceptance verification remain pending.**
 
 ## Stack
 
@@ -59,7 +59,7 @@ The web client and room server run as separate workspace processes.
 6. Mobile/desktop polish and production deployment
 7. Demo and Handshake submission assets
 
-See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the server-only [canonical Shared Signal playthrough](docs/SCENARIO_SHARED_SIGNAL.md).
 
 ## Security
 

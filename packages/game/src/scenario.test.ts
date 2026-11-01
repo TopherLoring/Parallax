@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { scenarioSchema } from "./scenario";
+import { sharedSignalScenario } from "./scenarios/shared-signal";
 
 const validScenario = {
   schemaVersion: 1,
@@ -30,6 +31,15 @@ const validScenario = {
 };
 
 describe("versioned scenario schema", () => {
+  it("validates the complete asymmetric Shared Signal scenario", () => {
+    const result = scenarioSchema.parse(sharedSignalScenario);
+    expect(result.id).toBe("shared-signal");
+    expect(result.perspectives).toHaveLength(2);
+    expect(result.mechanisms.map((mechanism) => mechanism.id)).toEqual([
+      "frequency-lock", "network-auth", "relay-restoration",
+    ]);
+  });
+
   it("parses a valid version 1 scenario and applies safe defaults", () => {
     const result = scenarioSchema.parse(validScenario);
     expect(result.schemaVersion).toBe(1);
@@ -67,6 +77,15 @@ describe("versioned scenario schema", () => {
       actions: [{ id: "bad-action", kind: "inspect-object", label: "Inspect", targetObjectId: "missing" }],
     };
     expect(scenarioSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it("rejects unknown required roles", () => {
+    expect(scenarioSchema.safeParse({ ...validScenario, requiredRoleIds: ["ghost", "operator"] }).success).toBe(false);
+  });
+
+  it("rejects a single required role and duplicate required roles", () => {
+    expect(scenarioSchema.safeParse({ ...validScenario, requiredRoleIds: ["operator"] }).success).toBe(false);
+    expect(scenarioSchema.safeParse({ ...validScenario, requiredRoleIds: ["operator", "operator"] }).success).toBe(false);
   });
 
   it("rejects undeclared keys to keep scenario data versioned and explicit", () => {

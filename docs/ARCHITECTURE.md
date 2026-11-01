@@ -4,7 +4,7 @@
 
 - Browser clients use HTTPS for assets and WebSockets for live sessions.
 - A Node.js Colyseus server owns each room's authoritative state.
-- The pure TypeScript game package owns puzzle rules, discovery rules, and state transitions.
+- The pure TypeScript game package owns the versioned scenario contract, puzzle rules, discovery authorization, deterministic session transitions, and recipient-safe player projections. The first complete scenario fixture lives in the game source tree but is server-only content; browser code must never import it.
 - SQLite is deferred until a concrete persistence requirement exists; the first playable slice should avoid unnecessary infrastructure.
 
 ## Trust boundaries
@@ -23,7 +23,7 @@ The room server:
 
 Do not put private clues in a globally synchronized Colyseus schema and hide them only in the UI. That leaks information to every connected client.
 
-Keep private discovery data server-side. Produce a separate authorized projection for each player. Add tests that inspect actual outbound payloads for clue leakage.
+Keep private discovery data server-side. Produce a separate authorized projection for each player using the game package projection function. Scenario definitions and accepted answer arrays are server-owned; only the sanitized player view may cross the WebSocket boundary. Add tests that inspect actual outbound payloads for clue leakage.
 
 ## Domain boundaries
 
