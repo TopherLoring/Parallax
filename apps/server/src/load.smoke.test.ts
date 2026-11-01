@@ -10,11 +10,12 @@ import { generateRoomCode, ROOM_TTL_MS, roomCodeRegistry } from "./roomCodes";
 type TestRoom = Awaited<ReturnType<Client["consumeSeatReservation"]>> & { state: any };
 
 function waitForState(room: TestRoom, predicate: (state: TestRoom["state"]) => boolean, timeoutMs = 10_000) {
-  if (predicate(room.state)) return Promise.resolve();
+  // Colyseus state is undefined until the first server patch reaches the client.
+  if (room.state && predicate(room.state)) return Promise.resolve();
   return new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("Load smoke timed out waiting for state")), timeoutMs);
     room.onStateChange((state) => {
-      if (!predicate(state)) return;
+      if (!state || !predicate(state)) return;
       clearTimeout(timeout);
       resolve();
     });
