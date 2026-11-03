@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { Room } from "colyseus.js";
+import type { Room } from "@colyseus/sdk";
 import { clearStoredRoom, createRoom, joinRoom, reconnectRoom } from "./lib/rooms";
 
 interface PublicPlayer {
