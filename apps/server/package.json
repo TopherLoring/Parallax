@@ -11,7 +11,7 @@
     "test": "tsx --test src/roomCodes.test.ts src/health.test.ts src/messages.test.ts src/publicState.test.ts src/roomApi.test.ts src/rateLimit.test.ts src/logger.test.ts src/room.integration.test.ts src/load.smoke.test.ts"
   },
   "dependencies": {
-    "@colyseus/schema": "^3.0.69",
+    "@colyseus/schema": "^5.0.0",
     "@colyseus/ws-transport": "^0.18.4",
     "@parallax/game": "workspace:*",
     "colyseus": "^0.18.10",
