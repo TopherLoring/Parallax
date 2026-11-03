@@ -84,8 +84,8 @@ test("two independent clients receive private roles and duplicate attempts charg
 
     const systemsReservation = await matchMaker.joinById(created.roomId, { displayName: "Systems" });
     const signalsReservation = await matchMaker.joinById(created.roomId, { displayName: "Signals" });
-    systemsRoom = await client.consumeSeatReservation(systemsReservation);
-    signalsRoom = await client.consumeSeatReservation(signalsReservation);
+    systemsRoom = await client.consumeSeatReservation(systemsReservation as any);
+    signalsRoom = await client.consumeSeatReservation(signalsReservation as any);
 
     const systemsViewPromise = waitForMessage<any>(systemsRoom, "game:view");
     const signalsViewPromise = waitForMessage<any>(signalsRoom, "game:view");
