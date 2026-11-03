@@ -1,4 +1,4 @@
-import { Room, type Client } from "colyseus";
+import { Room, type Client, CloseCode } from "colyseus";
 import {
   canAttemptMechanism,
   canInspectObject,
@@ -23,7 +23,7 @@ import {
   startMessageSchema,
 } from "../messages";
 
-export class ParallaxRoom extends Room<ParallaxPublicState> {
+export class ParallaxRoom extends Room<{ state: ParallaxPublicState }> {
   state = new ParallaxPublicState();
   private domainState: GameSessionState = createGameSession(activeScenario);
   private roomCode = "";
@@ -94,7 +94,8 @@ export class ParallaxRoom extends Room<ParallaxPublicState> {
     this.syncState();
   }
 
-  async onLeave(client: Client, consented: boolean) {
+  async onLeave(client: Client, code?: number) {
+    const consented = code === CloseCode.CONSENTED;
     this.domainState = transitionGame(this.domainState, activeScenario, {
       type: "player.leave",
       playerId: client.sessionId,

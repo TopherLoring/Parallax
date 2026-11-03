@@ -1,4 +1,4 @@
-import { Client, type Room } from "colyseus.js";
+import { Client, type Room } from "@colyseus/sdk";
 
 const serverUrl = import.meta.env.VITE_GAME_SERVER_URL ?? "ws://localhost:2567";
 const httpUrl = import.meta.env.VITE_GAME_SERVER_HTTP_URL ?? serverUrl.replace(/^ws/, "http");

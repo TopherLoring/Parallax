@@ -3,7 +3,7 @@ import test from "node:test";
 import { createServer } from "node:http";
 import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import { Client } from "colyseus.js";
+import { Client } from "@colyseus/sdk";
 import { ParallaxRoom } from "./rooms/ParallaxRoom";
 import { generateRoomCode, ROOM_TTL_MS, roomCodeRegistry } from "./roomCodes";
 
@@ -46,8 +46,8 @@ test("five concurrent rooms support ten connected clients through lobby start", 
         matchMaker.joinById(created.roomId, { displayName: `Guest ${index + 1}` }),
       ]);
       const [host, guest] = await Promise.all([
-        new Client(endpoint).consumeSeatReservation(hostReservation) as Promise<TestRoom>,
-        new Client(endpoint).consumeSeatReservation(guestReservation) as Promise<TestRoom>,
+        new Client(endpoint).consumeSeatReservation(hostReservation as any) as Promise<TestRoom>,
+        new Client(endpoint).consumeSeatReservation(guestReservation as any) as Promise<TestRoom>,
       ]);
       connectedRooms.push(host, guest);
       return [host, guest] as const;
