@@ -46,8 +46,8 @@ test("five concurrent rooms support ten connected clients through lobby start", 
         matchMaker.joinById(created.roomId, { displayName: `Guest ${index + 1}` }),
       ]);
       const [host, guest] = await Promise.all([
-        new Client(endpoint).consumeSeatReservation(hostReservation) as Promise<TestRoom>,
-        new Client(endpoint).consumeSeatReservation(guestReservation) as Promise<TestRoom>,
+        new Client(endpoint).consumeSeatReservation(hostReservation as any) as Promise<TestRoom>,
+        new Client(endpoint).consumeSeatReservation(guestReservation as any) as Promise<TestRoom>,
       ]);
       connectedRooms.push(host, guest);
       return [host, guest] as const;
