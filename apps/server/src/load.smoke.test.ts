@@ -3,7 +3,7 @@ import test from "node:test";
 import { createServer } from "node:http";
 import { Server, matchMaker } from "colyseus";
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import { Client } from "colyseus.js";
+import { Client } from "@colyseus/sdk";
 import { ParallaxRoom } from "./rooms/ParallaxRoom";
 import { generateRoomCode, ROOM_TTL_MS, roomCodeRegistry } from "./roomCodes";
 
