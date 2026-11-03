@@ -14,7 +14,7 @@
     "@colyseus/schema": "^3.0.69",
     "@colyseus/ws-transport": "^0.16.5",
     "@parallax/game": "workspace:*",
-    "colyseus": "^0.16.5",
+    "colyseus": "^0.18.10",
     "zod": "^4.1.11",
     "tsx": "^4.20.5"
   },
